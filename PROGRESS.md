@@ -89,9 +89,9 @@ Tests: 36 fast tests (`-m "not slow"`), 1 slow subprocess test, 2 HET parity tes
   - design_b_coil_layers (36 rows, 11 rejected by the pre-screen: coils overlapping the BN part): best
     26 inner / 21 outer turns per layer, misfit 1.30 % (as designed 29/21: 1.94 %).
   - design_a_permeability: misfit insensitive to mu_r (1.17-1.31 %); power 1.48 W (mu 5000) to 2.64 W (mu 200).
-- O8 (design question): sweeping a material property continuously (e.g. mu_r 200-5000) needs either
-  generated material variants or a material-override mechanism; swapping whole materials across all iron
-  parts already works via an assembly parameter (`params.iron`, used in HET/sim).
+- O8 closed (2026-10-29, your call): materials have fixed properties. Worst/best cases are separate material
+  entries (e.g. `iron_legacy_mu200`), swapped across parts with an assembly parameter (`params.iron`).
+  No property-sweep mechanism until a study needs one.
 - Phase 7: multi-stage pipelines (exports -> openPMD -> next stage), warpx backend, nonlinear normalization.
 
 ## Next steps
