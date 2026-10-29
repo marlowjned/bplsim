@@ -1,0 +1,9 @@
+description: "Linear 3-D magnetostatics (GetDP), coarse mesh for tests"
+stages:
+  mag:
+    backend: getdp_3d ^1.0
+    fidelity:
+      nonlinear: false
+      mesh: {h_fine: 2.0, h_iron: 5.0, h_far: 80}
+      air_radius: 250
+    resources: {cores: 1, memory: 4 GB, runtime_hint: 120 s}

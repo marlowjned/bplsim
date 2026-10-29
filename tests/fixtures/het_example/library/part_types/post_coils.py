@@ -43,7 +43,10 @@ class PostCoils(Winding):
         ring = cad.cut(cad.cylinder(p.on.post_radius + w["build"], w["length"]),
                        cad.cylinder(p.on.post_radius, w["length"]))
         ring.material = p.wire
-        ring.excitation = {"circuit": p.circuit, "turns": p.turns, "sign": 1, "around": "post"}
+        # clockwise seen from +z (sign -1 about each post's own axis): the side of each coil nearest the
+        # thruster axis then carries +theta current, as the inner winding sheet of the 2-D smear does, so the
+        # posts carry the return flux (-z)
+        ring.excitation = {"circuit": p.circuit, "turns": p.turns, "sign": -1, "around": "post"}
         return cad.polar_array(ring, p.on.count, p.on.ring_radius, p.on.phase, names="coil_{i}")
 
     @equivalence("winding_sheets", valid_for="any")
