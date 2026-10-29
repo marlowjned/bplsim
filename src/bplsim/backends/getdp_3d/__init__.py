@@ -247,9 +247,22 @@ class GetDP3D(Backend):
             r = subprocess.run(cmd, cwd=workdir, capture_output=True, text=True, timeout=timeout)
         except subprocess.TimeoutExpired:
             return ExecResult("failed", f"getdp timed out after {timeout:.0f} s")
-        (workdir / f"solve_{basis.name}.log").write_text(r.stdout + r.stderr)
+        log = r.stdout + r.stderr
+        (workdir / f"solve_{basis.name}.log").write_text(log)
         if r.returncode != 0 or not (workdir / "mag3d.res").exists():
-            return ExecResult("failed", f"getdp failed: {(r.stdout + r.stderr)[-1500:]}")
+            return ExecResult("failed", f"getdp failed: {log[-1500:]}")
+        # an unconverged nonlinear solve must never be stored as a result
+        bad = [ln.strip() for ln in log.splitlines() if "did NOT converge" in ln]
+        stalled = []
+        if f.get("nonlinear") and f.get("nl.method") == "picard":
+            import re
+            tol = float(f.get("nl.tol_rel", 1e-4))
+            for m in re.finditer(r"ramp step (\S+): (\S+) iterations, relative residual ([-+0-9.eE]+)", log):
+                if float(m.group(3)) > tol:
+                    stalled.append(m.group(0))
+        if bad or stalled:
+            return ExecResult("failed", "nonlinear solve did not converge: " + "; ".join(bad + stalled)
+                              + " (try a finer fidelity.ramp, nl.relax < 1, or more nl.iter_max)")
         (workdir / "mag3d.res").replace(workdir / f"basis_{basis.name}.res")
         return ExecResult()
 
