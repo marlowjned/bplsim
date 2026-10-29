@@ -19,7 +19,7 @@ and `../HET/docs/TRADE_FRAMEWORK_EXAMPLE.md` (v0.3). If a session ends, resume f
 | 1 Config and model | done | loader, units, expressions, materials, part types, assemblies, resolver with origins, checks |
 | 2 Measurement and execution core | done | probes, metrics, references, measurement sets, superposition, normalization, hashing, folders, worker, local/inline executors, store, query, samplers, driver |
 | 3 GetDP 2-D + HET library + parity | done | `../HET/sim`; Design A and B within the legacy model's mesh noise (`../HET/sim/PARITY.md`) |
-| 4 Studies, figures, reports | partly | figures + reports + analysis API done; 2 of ~14 legacy studies ported (gap sweep, Design A search spec) |
+| 4 Studies, figures, reports | partly | figures + reports + analysis API done; 4 legacy studies ported and run (gap sweep + report, Design A compass search, permeability, Design B coil layering) |
 | 5 Remote execution | done (untested on a real cluster) | Slurm executor, multi-worker run-task, sync (ssh+tar), container; tested with stand-in Slurm commands |
 | 6 3-D | done, one open issue | `getdp_3d` (geometry from part recipes, linear and nonlinear iron, Newton); 2-D vs 3-D cross-check agrees; nonlinear convergence on the test design: see open issue O1 |
 | 7 WarpX | adapter done, untested with real WarpX | multi-stage pipelines, openPMD exports, `warpx` backend with deck templates; tested with a stand-in WarpX |
@@ -83,6 +83,15 @@ Tests: 36 fast tests (`-m "not slow"`), 1 slow subprocess test, 2 HET parity tes
 - Phase 4/5: figures (library entry kind), reports, analysis API; Slurm executor, sync, container, CI.
 - Phase 6: getdp_3d; coarse 3-D (444k tets, ~90 s per basis) vs 2-D on the same design: currents within 1 %,
   sigma 17.3 vs 17.2 mm, exit B_r 88.0 vs 89.7 %; 3-D exit-ring ripple 21 % (coarse mesh).
+- Ported studies run on GetDP 2-D (HET/sim/studies, data in scratch/hetdata):
+  - design_a_search (compass, 85 solves, 12 rounds): misfit 1.178 -> 0.716 %; it ended on the range limits
+    (cap edge 1.0 mm, chamfer 10 mm), so the bounds should be widened before trusting the optimum.
+  - design_b_coil_layers (36 rows, 11 rejected by the pre-screen: coils overlapping the BN part): best
+    26 inner / 21 outer turns per layer, misfit 1.30 % (as designed 29/21: 1.94 %).
+  - design_a_permeability: misfit insensitive to mu_r (1.17-1.31 %); power 1.48 W (mu 5000) to 2.64 W (mu 200).
+- O8 (design question): sweeping a material property continuously (e.g. mu_r 200-5000) needs either
+  generated material variants or a material-override mechanism; swapping whole materials across all iron
+  parts already works via an assembly parameter (`params.iron`, used in HET/sim).
 - Phase 7: multi-stage pipelines (exports -> openPMD -> next stage), warpx backend, nonlinear normalization.
 
 ## Next steps
