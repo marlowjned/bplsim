@@ -154,6 +154,7 @@ def run_run(project, root: DataRoot, job: dict) -> str:
             md.finish()
             mdefs[md.alias] = md
         hashes = {h2 for md in mdefs.values() for h2 in md.input_hashes.values()}
+        hashes |= {e["hash"] for e in job.get("exports", [])}
         case_data = read_case_data(case_dir, hashes)
         normalized = {}
         if job.get("normalize"):
@@ -166,6 +167,12 @@ def run_run(project, root: DataRoot, job: dict) -> str:
                 unit = md.outputs.get(k, "") if isinstance(md.outputs, dict) else ""
                 flat[f"{alias}.{k}"] = {"value": _plain(v), "unit": unit, "metric": md.metric_id,
                                         "version": md.version, "definition": md.def_hash}
+        if job.get("exports"):
+            from ..measure.engine import basis_weights, combined
+            w = basis_weights(design, job["bases"])
+            (tmp / "exports").mkdir()
+            for e in job["exports"]:
+                write_export(combined(case_data, e["hash"], w), tmp / "exports" / f"{e['name']}.h5")
         write_json(tmp / "run.json", {"run_hash": h, "case_hash": job["case_hash"], "stage": job["stage"],
                                       "design": job["design"], "normalized": normalized, "bases": job["bases"],
                                       "provenance": job.get("provenance", {}), "finished": _stamp()})
@@ -177,6 +184,21 @@ def run_run(project, root: DataRoot, job: dict) -> str:
     except Exception as e:  # noqa: BLE001
         shutil.rmtree(tmp, ignore_errors=True)
         return _fail_run(root, h, "failed", f"{type(e).__name__}: {e}", traceback.format_exc())
+
+
+def write_export(d: ProbeData, path: Path) -> Path:
+    """A grid probe (std:probes/grid_fieldmap) at the run's currents, as an openPMD file for a later stage."""
+    import numpy as np
+    from ..measure.openpmd import write_field
+    if "x" in d.coords:
+        X, Y, Z = d.coords["x"], d.coords["y"], d.coords["z"]
+        axes = {"x": X[:, 0, 0], "y": Y[0, :, 0], "z": Z[0, 0, :]}
+        b = np.stack([d.fields["B_x"], d.fields["B_y"], d.fields["B_z"]], axis=-1)
+    else:
+        R, Z = d.coords["r"], d.coords["z"]
+        axes = {"r": R[:, 0], "z": Z[0, :]}
+        b = np.stack([d.fields["B_r"], d.fields["B_theta"], d.fields["B_z"]], axis=-1)
+    return write_field(path, axes, {"B": b})
 
 
 def _fail_run(root, h, status, reason, tb=""):

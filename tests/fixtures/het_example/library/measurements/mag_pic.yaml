@@ -1,0 +1,7 @@
+description: "Channel shape at the magnetostatic stage, reduced diagnostics at the PIC stage"
+probes:
+  profile: {probe: het:probes/channel_profile, stage: mag}
+  pic_scalars: {probe: std:probes/scalars, stage: pic}
+metrics:
+  shape: {metric: het:metrics/field_shape, inputs: {profile: profile}}
+  pic: {metric: std:metrics/scalar, inputs: {data: pic_scalars}}

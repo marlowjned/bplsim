@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS rows(study_id TEXT, row_id INTEGER, round INTEGER, or
 CREATE TABLE IF NOT EXISTS row_values(study_id TEXT, row_id INTEGER, name TEXT, value_num REAL, value_text TEXT,
     unit TEXT, PRIMARY KEY (study_id, row_id, name));
 CREATE TABLE IF NOT EXISTS row_runs(study_id TEXT, row_id INTEGER, stage TEXT, run_id TEXT, case_id TEXT,
-    PRIMARY KEY (study_id, row_id, stage));
+    stage_index INTEGER DEFAULT 0, PRIMARY KEY (study_id, row_id, stage));
 CREATE TABLE IF NOT EXISTS cases(case_id TEXT PRIMARY KEY, backend TEXT, backend_version TEXT, status TEXT,
     reason TEXT, path TEXT, wall_s REAL, cpu_s REAL, raw_retained INTEGER, provenance_json TEXT);
 CREATE TABLE IF NOT EXISTS runs(run_id TEXT PRIMARY KEY, case_id TEXT, stage TEXT, status TEXT, error TEXT,
@@ -38,6 +38,14 @@ class DB:
         self.con = sqlite3.connect(self.path, timeout=60)
         self.con.execute("PRAGMA journal_mode=WAL")
         self.con.executescript(SCHEMA)
+        self._migrate()
+
+    def _migrate(self):
+        """Add columns introduced after a database was created."""
+        cols = {r[1] for r in self.con.execute("PRAGMA table_info(row_runs)")}
+        if "stage_index" not in cols:
+            self.con.execute("ALTER TABLE row_runs ADD COLUMN stage_index INTEGER DEFAULT 0")
+            self.con.commit()
 
     def close(self):
         self.con.close()

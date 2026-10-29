@@ -51,20 +51,29 @@ def wide(db: DB, run_ids: list[str] | None = None, metrics: list[str] | None = N
 
 
 def study_table(db: DB, study_id: str) -> pd.DataFrame:
-    rows = db.query("SELECT r.row_id, r.round, r.status, r.invalid_reason, rr.run_id FROM rows r "
-                    "LEFT JOIN row_runs rr ON r.study_id = rr.study_id AND r.row_id = rr.row_id "
-                    "WHERE r.study_id = ? ORDER BY r.row_id", [study_id])
+    """One line per row: study variables, status, the final stage's run_id, and the metrics of all its
+    stages' runs."""
+    rows = db.query("SELECT row_id, round, status, invalid_reason FROM rows WHERE study_id = ? ORDER BY row_id",
+                    [study_id])
     base = pd.DataFrame([dict(r) for r in rows])
     if base.empty:
         return base
+    rr = db.query("SELECT row_id, stage, run_id, stage_index FROM row_runs WHERE study_id = ?", [study_id])
+    last = {}
+    for r in sorted(rr, key=lambda x: (x["row_id"], x["stage_index"] or 0)):
+        last[r["row_id"]] = r["run_id"]
+    base["run_id"] = base["row_id"].map(last)
     vals = _pivot(db.query("SELECT row_id, name, value_num, value_text FROM row_values WHERE study_id=?",
                            [study_id]), "row_id", "name")
     base = base.join(vals, on="row_id")
-    run_ids = [r for r in base["run_id"].dropna().unique().tolist()]
+    run_ids = sorted({r["run_id"] for r in rr})
     if run_ids:
         m = _pivot(db.query(f"SELECT run_id, name, value_num, value_text FROM metrics WHERE run_id IN "
                             f"({','.join('?' * len(run_ids))})", run_ids), "run_id", "name")
-        base = base.join(m, on="run_id")
+        if len(m):
+            run_row = pd.DataFrame([{"run_id": r["run_id"], "row_id": r["row_id"]} for r in rr])
+            per_row = run_row.join(m, on="run_id").drop(columns="run_id").groupby("row_id").first()
+            base = base.join(per_row, on="row_id")
     return base
 
 

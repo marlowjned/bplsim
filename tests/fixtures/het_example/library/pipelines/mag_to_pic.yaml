@@ -1,0 +1,12 @@
+description: "Magnetostatics (analytic loops) then PIC (WarpX), for tests of stage chaining"
+stages:
+  mag:
+    backend: analytic_loops ^1.0
+    fidelity: {filaments: 2, cell: 2.0}
+    equivalence: {outer_posts: smeared_ring, outer_coils: winding_sheets, front_plate: equal_area_disc, back_plate: equal_area_disc}
+    exports:
+      fieldmap: {probe: std:probes/grid_fieldmap, with: {grid: cylindrical, r: [0, 60], z: [-50, 50], spacing: 2}}
+  pic:
+    backend: warpx ^0.1
+    inputs: {B_external: mag.exports.fieldmap}
+    fidelity: {steps: 20, diag_period: 10, cells: "32 64"}

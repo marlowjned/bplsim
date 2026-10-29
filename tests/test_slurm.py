@@ -27,7 +27,7 @@ def test_slurm_executor_runs_study(tmp_path, monkeypatch):
                                     "sacct": f"{py} {(FAKE / 'sacct.py').as_posix()}"}})
     d, s = run_study(HET, "cap_screen_loops.yaml", tmp_path / "data", executor=SlurmExecutor(site))
     assert s["done"] == 12
-    sub = next((tmp_path / "data").glob("studies/*/rounds/0/attempt0/submit.sh")).read_text()
+    sub = next((tmp_path / "data").glob("studies/*/rounds/0/*attempt0/submit.sh")).read_text()
     assert "#SBATCH --array=0-" in sub and "--workers" in sub and "#SBATCH --partition=debug" in sub
 
 

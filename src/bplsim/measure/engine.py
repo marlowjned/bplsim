@@ -28,6 +28,7 @@ class ProbeDef:
     version: str
     params: dict
     def_hash: str = ""
+    stage: str | None = None          # pipeline stage it measures (None: the last stage); not hashed
 
     def __post_init__(self):
         self.def_hash = content_hash({"probe": self.probe_id, "v": major_minor(self.version), "params": self.params})
@@ -48,6 +49,7 @@ class MetricDef:
     def_hash: str = ""
     design_only: bool = False
     outputs: dict = field(default_factory=dict)
+    stage: str | None = None
 
     def finish(self):
         self.design_only = not self.inputs
@@ -100,15 +102,21 @@ def _merge_ms(ms: MeasurementSet, data: dict, where: str):
             continue
         if "probe" not in spec:
             raise ConfigError(f"{where}: probe alias {alias!r} needs 'probe'")
-        ms.probes[alias] = {"probe": spec["probe"], "with": dict(spec.get("with") or {})}
+        bad = set(spec) - {"probe", "with", "stage"}
+        if bad:
+            raise ConfigError(f"{where}: probe alias {alias!r}: unknown key(s) {sorted(bad)}")
+        ms.probes[alias] = {"probe": spec["probe"], "with": dict(spec.get("with") or {}), "stage": spec.get("stage")}
     for alias, spec in (data.get("metrics") or {}).items():
         if spec is None:
             ms.metrics.pop(alias, None)
             continue
         if "metric" not in spec:
             raise ConfigError(f"{where}: metric alias {alias!r} needs 'metric'")
+        bad = set(spec) - {"metric", "inputs", "with", "stage"}
+        if bad:
+            raise ConfigError(f"{where}: metric alias {alias!r}: unknown key(s) {sorted(bad)}")
         ms.metrics[alias] = {"metric": spec["metric"], "inputs": dict(spec.get("inputs") or {}),
-                             "with": dict(spec.get("with") or {})}
+                             "with": dict(spec.get("with") or {}), "stage": spec.get("stage")}
 
 
 def _resolve_params(design, fn, raw: dict, skip: set, where: str, project) -> dict:
@@ -153,7 +161,7 @@ def define_measurements(project, design, ms: MeasurementSet, extra_probes: dict 
     for alias, spec in all_probes.items():
         fn = project.probe(spec["probe"])
         params = _resolve_params(design, fn, spec["with"], {"design", "sol"}, f"probes.{alias}", project)
-        probes[alias] = ProbeDef(alias, spec["probe"], fn._bplsim["version"], params)
+        probes[alias] = ProbeDef(alias, spec["probe"], fn._bplsim["version"], params, stage=spec.get("stage"))
     metrics: dict[str, MetricDef] = {}
     for alias, spec in ms.metrics.items():
         fn = project.metric(spec["metric"])
@@ -173,8 +181,15 @@ def define_measurements(project, design, ms: MeasurementSet, extra_probes: dict 
         params = _resolve_params(design, fn, spec["with"], skip, f"metrics.{alias}", project)
         md = MetricDef(alias, spec["metric"], info["version"], dict(spec["inputs"]), params,
                        {a: probes[p].def_hash for a, p in spec["inputs"].items()},
-                       outputs=info["outputs"] if isinstance(info["outputs"], dict) else {})
+                       outputs=info["outputs"] if isinstance(info["outputs"], dict) else {},
+                       stage=spec.get("stage"))
         md.finish()
+        stages = {probes[p].stage for p in spec["inputs"].values()}
+        if len(stages) > 1:
+            raise ResolveError(f"metric inputs come from different stages {sorted(map(str, stages))}",
+                               path=f"metrics.{alias}")
+        if stages and md.stage is None:
+            md.stage = next(iter(stages))
         metrics[alias] = md
     return probes, metrics
 

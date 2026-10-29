@@ -18,8 +18,8 @@ from ..errors import BplsimError, ConfigError, ErrorList, ExpressionError, Resol
 from ..execute.folders import DataRoot, read_json, write_json
 from ..execute.local import LocalExecutor, TaskSpec, pack, write_task
 from ..hashing import content_hash, major_minor
-from ..measure.engine import (call_design_metric, define_measurements, evaluate_metric, load_measurement_set,
-                              reads_paths)
+from ..measure.engine import (MeasurementSet, call_design_metric, define_measurements, evaluate_metric,
+                              load_measurement_set, reads_paths)
 from ..pipeline import load_pipeline
 from ..project import Project
 from ..resolve import Resolver
@@ -46,6 +46,7 @@ class Row:
     job_case: dict | None = None
     job_run: dict | None = None
     design_metrics: dict = field(default_factory=dict)
+    stages: dict = field(default_factory=dict)          # stage -> {case_hash, run_hash, job_case, job_run}
 
 
 def _git_commit(path: Path) -> tuple[str, bool]:
@@ -82,10 +83,9 @@ class Driver:
         self.spec: StudySpec = load_study(self.project, self.study_dir / "spec.yaml")
         self.spec.name = self.study_file.stem
         self.pipeline = load_pipeline(self.project, self.spec.pipeline)
-        if len(self.pipeline.stages) != 1:
-            raise ConfigError("multi-stage pipelines are run by the chained driver (not yet available)")
-        (self.stage_name,) = self.pipeline.order()
-        self.stage = self.pipeline.stages[self.stage_name]
+        self.order = self.pipeline.order()
+        self.stage_name = self.order[-1]
+        self.stage = self.pipeline.stages[self.order[0]]
         self.ms = load_measurement_set(self.project, self.spec.measure_use, self.spec.measure_add)
         self.db = DB(self.root.db_path)
         self.state_path = self.study_dir / "sampler_state.json"
@@ -175,68 +175,95 @@ class Driver:
         ps = prescreen(design, design.checks_spec)
         row.prescreen = ps
         pdefs, mdefs = define_measurements(self.project, design, self.ms)
+        last = self.order[-1]
+        for d_ in list(pdefs.values()) + list(mdefs.values()):
+            if d_.stage is None:
+                d_.stage = last
+            elif d_.stage not in self.pipeline.stages:
+                raise ConfigError(f"measurement {d_.alias}: no stage {d_.stage!r} in {self.pipeline.id}")
         norm_paths = set(spec.normalize["scale"]) if spec.normalize else set()
-        # design-only metrics and constraints on them
         for alias, md in mdefs.items():
             if md.design_only:
                 reads = reads_paths(self.project, design, md)
                 if not (norm_paths & set(reads)):
                     row.design_metrics[alias] = evaluate_metric(self.project, design, md, {})
-        failures = [i for i in ps.failures]
-        reasons = [f"{i.name} ({i.detail})" if i.detail else i.name for i in failures]
+        reasons = [f"{i.name} ({i.detail})" if i.detail else i.name for i in ps.failures]
         for cname, c in spec.constraints.items():
             alias, _, out = c.value.partition(".")
             if alias in row.design_metrics:
                 v = row.design_metrics[alias][out]
                 d = self._output_dim(c.value, mdefs)
-                slack = self._slack(v, c, d)
-                if slack < -1e-12:
+                if self._slack(v, c, d) < -1e-12:
                     reasons.append(f"constraint {cname}: {c.value} = {self._show(v, d)}")
         if reasons:
             row.status, row.reason = "invalid", "; ".join(reasons)
             return row
-        # pins
         for expr in spec.pin:
             try:
                 if design.evaluate(expr)[0]:
                     row.pinned = True
             except BplsimError as e:
                 raise ConfigError(f"pin expression {expr!r}: {e}") from None
-        # stage, case, run
-        st = self.stage
-        cfg = st.config(design)
-        issues = st.backend.check(design, cfg)
-        if issues:
-            row.status, row.reason = "invalid", "backend: " + "; ".join(issues)
-            return row
-        try:
-            inputs = st.backend.solve_inputs(design, cfg)
-        except BplsimError as e:
-            row.status, row.reason = "invalid", f"backend: {e}"
-            return row
-        bases = [b.canonical() for b in st.backend.bases(design, cfg, inputs)]
-        superposed = st.backend.superposed(cfg)
-        case_hash = content_hash({"backend": st.backend.name, "version": major_minor(st.backend.version),
-                                  "inputs": inputs, "bases": bases})
         normalize = None
+        norm_stage = None
         if spec.normalize:
             d = self._output_dim(spec.normalize["value"], mdefs)
             normalize = {"scale": spec.normalize["scale"], "value": spec.normalize["value"],
                          "target_si": self._limit_si(spec.normalize["equals"], d)}
+            norm_stage = mdefs[spec.normalize["value"].split(".")[0]].stage
         canon = design.canonical()
-        run_hash = content_hash({"case": case_hash, "design": canon, "normalize": normalize, "stage": st.name,
-                                 "metrics": sorted(md.def_hash for md in mdefs.values())})
-        row.case_hash, row.run_hash = case_hash, run_hash
-        row.params = {p: v for p, v in canon["values"].items()}
+        row.params = dict(canon["values"])
         prov = self.provenance()
-        row.job_case = {"type": "case", "case_hash": case_hash, "stage": st.name, "backend": st.backend_spec,
+        for sname in self.order:
+            st = self.pipeline.stages[sname]
+            cfg = st.config(design)
+            issues = st.backend.check(design, cfg)
+            if issues:
+                row.status, row.reason = "invalid", f"backend ({sname}): " + "; ".join(issues)
+                return row
+            try:
+                inputs = st.backend.solve_inputs(design, cfg)
+            except BplsimError as e:
+                row.status, row.reason = "invalid", f"backend ({sname}): {e}"
+                return row
+            # hand-offs from earlier stages: hashed by the upstream run, located at execution time
+            if st.inputs:
+                inputs["upstream"], inputs["_upstream_files"] = {}, {}
+                for key, ref in st.inputs.items():
+                    up, kind, name = (ref.split(".") + ["", ""])[:3]
+                    if kind != "exports" or up not in row.stages:
+                        raise ConfigError(f"stage {sname}: input {key} = {ref!r} must be <earlier stage>.exports.<name>")
+                    inputs["upstream"][key] = {"stage": up, "run": row.stages[up]["run_hash"], "export": name}
+                    inputs["_upstream_files"][key] = str(self.root.run_dir(row.stages[up]["run_hash"]) / "exports"
+                                                         / f"{name}.h5")
+            exp_defs = {}
+            if st.exports:
+                exp_ms = MeasurementSet(probes={n: {"probe": e["probe"], "with": dict(e.get("with") or {}),
+                                                    "stage": sname} for n, e in st.exports.items()})
+                exp_defs, _ = define_measurements(self.project, design, exp_ms)
+            stage_pdefs = [p for p in pdefs.values() if p.stage == sname] + list(exp_defs.values())
+            stage_mdefs = [m for m in mdefs.values() if m.stage == sname]
+            bases = [b.canonical() for b in st.backend.bases(design, cfg, inputs)]
+            hashed = {k: v for k, v in inputs.items() if not k.startswith("_")}
+            case_hash = content_hash({"backend": st.backend.name, "version": major_minor(st.backend.version),
+                                      "inputs": hashed, "bases": bases})
+            st_norm = normalize if norm_stage == sname else None
+            run_hash = content_hash({"case": case_hash, "design": canon, "normalize": st_norm, "stage": sname,
+                                     "metrics": sorted(m.def_hash for m in stage_mdefs),
+                                     "exports": sorted(p.def_hash for p in exp_defs.values())})
+            job_case = {"type": "case", "case_hash": case_hash, "stage": sname, "backend": st.backend_spec,
                         "inputs": inputs, "bases": bases, "design": canon,
-                        "probes": [p.canonical() for p in pdefs.values()],
+                        "probes": [p.canonical() for p in stage_pdefs],
                         "resources": dict(st.resources), "retention": dict(spec.retention), "pinned": row.pinned,
                         "needs_raw": getattr(st.backend, "measure_needs_raw", True), "provenance": prov}
-        row.job_run = {"type": "run", "run_hash": run_hash, "case_hash": case_hash, "stage": st.name,
-                       "design": canon, "bases": bases, "metrics": [m.canonical() for m in mdefs.values()],
-                       "normalize": normalize, "superposed": superposed, "provenance": prov}
+            job_run = {"type": "run", "run_hash": run_hash, "case_hash": case_hash, "stage": sname,
+                       "design": canon, "bases": bases, "metrics": [m.canonical() for m in stage_mdefs],
+                       "exports": [{"name": n, "hash": d.def_hash} for n, d in exp_defs.items()],
+                       "normalize": st_norm, "superposed": st.backend.superposed(cfg), "provenance": prov}
+            row.stages[sname] = {"case_hash": case_hash, "run_hash": run_hash, "job_case": job_case,
+                                 "job_run": job_run}
+        row.case_hash = row.stages[last]["case_hash"]
+        row.run_hash = row.stages[last]["run_hash"]
         row.status = "pending"
         return row
 
@@ -256,33 +283,49 @@ class Driver:
 
     # ---- execution ------------------------------------------------------------------------------------
     def execute(self, rows: list[Row], round_no: int) -> None:
+        for i, sname in enumerate(self.order):
+            active = []
+            for r in rows:
+                if r.status != "pending":
+                    continue
+                if i > 0:
+                    up = self.order[i - 1]
+                    if not self.root.done(self.root.run_dir(r.stages[up]["run_hash"])):
+                        r.status = "failed"
+                        r.reason = f"upstream stage {up} did not finish"
+                        continue
+                active.append(r)
+            self._execute_stage(active, round_no, sname)
+
+    def _execute_stage(self, rows: list[Row], round_no: int, sname: str) -> None:
+        st = self.pipeline.stages[sname]
         cases: dict[str, dict] = {}
         runs: dict[str, dict] = {}
         for r in rows:
-            if r.status != "pending":
-                continue
-            cj = cases.get(r.case_hash)
+            info = r.stages[sname]
+            cj = cases.get(info["case_hash"])
             if cj is None:
-                cases[r.case_hash] = json.loads(json.dumps(r.job_case))
+                cases[info["case_hash"]] = json.loads(json.dumps(info["job_case"]))
             else:
                 have = {p["hash"] for p in cj["probes"]}
-                cj["probes"] += [p for p in r.job_case["probes"] if p["hash"] not in have]
+                cj["probes"] += [p for p in info["job_case"]["probes"] if p["hash"] not in have]
                 cj["pinned"] = cj["pinned"] or r.pinned
-            if not self.root.done(self.root.run_dir(r.run_hash)):
-                runs[r.run_hash] = r.job_run
+            if not self.root.done(self.root.run_dir(info["run_hash"])):
+                runs[info["run_hash"]] = info["job_run"]
         need_case = []
+        from ..execute.runtask import _measured
         for h, cj in cases.items():
             d = self.root.case_dir(h)
-            if self.root.done(d):
-                from ..execute.runtask import _measured
-                if all(p["hash"] in _measured(d) for p in cj["probes"]):
-                    continue
+            if self.root.done(d) and all(p["hash"] in _measured(d) for p in cj["probes"]):
+                continue
             need_case.append(cj)
         n_cached = len(cases) - len(need_case)
-        self.log(f"round {round_no}: {len(rows)} rows, {sum(r.status == 'invalid' for r in rows)} invalid, "
-                 f"{len(cases)} cases ({n_cached} cached), {len(runs)} runs to compute")
+        tag = f" [{sname}]" if len(self.order) > 1 else ""
+        self.log(f"round {round_no}{tag}: {len(rows)} rows, {len(cases)} cases ({n_cached} cached), "
+                 f"{len(runs)} runs to compute")
         if not need_case and not runs:
             return
+        res = st.resources
         for attempt in range(2):
             jobs_by_case: dict[str, list] = {cj["case_hash"]: [cj] for cj in need_case}
             orphan_runs = []
@@ -292,12 +335,11 @@ class Driver:
                 elif not self.root.done(self.root.run_dir(rj["run_hash"])):
                     orphan_runs.append(rj)
             groups = list(jobs_by_case.values())
-            res = self.stage.resources
             n_slots = self.executor.capacity(int(res.get("cores", 1)), float(res.get("memory", 0)))
-            runtime = self._runtime_estimate()
+            runtime = self._runtime_estimate(st)
             sizes = self.executor.partition(len(groups), n_slots, runtime, res)
             tasks, i = [], 0
-            tdir = self.study_dir / "rounds" / str(round_no) / f"attempt{attempt}"
+            tdir = self.study_dir / "rounds" / str(round_no) / f"{sname}_attempt{attempt}"
             timeout = res.get("timeout")
             for k, size in enumerate(sizes):
                 jobs = [j for g in groups[i:i + size] for j in g]
@@ -308,12 +350,8 @@ class Driver:
                 p = write_task(tdir / "task_runs.json", self.snapshot, self.root.root, orphan_runs)
                 tasks.append(TaskSpec(p, len(orphan_runs)))
             outcomes = self.executor.run(tasks, parallel=n_slots)
-            # retry jobs that left no trace (timeout or crash), once
-            retry = []
-            for cj in need_case:
-                h = cj["case_hash"]
-                if not self.root.done(self.root.case_dir(h)) and not (self.root.failed_dir(h) / "status.json").exists():
-                    retry.append(cj)
+            retry = [cj for cj in need_case if not self.root.done(self.root.case_dir(cj["case_hash"]))
+                     and not (self.root.failed_dir(cj["case_hash"]) / "status.json").exists()]
             bad = [o for o in outcomes if o.timed_out or (o.returncode not in (0, None))]
             if attempt == 0 and retry:
                 self.log(f"  {len(retry)} case(s) left no result ({len(bad)} task(s) timed out or crashed); retrying once")
@@ -325,7 +363,6 @@ class Driver:
                 fd = self.root.failed_dir(cj["case_hash"])
                 fd.mkdir(parents=True, exist_ok=True)
                 write_json(fd / "status.json", {"status": kind, "reason": f"no result after retry ({kind})"})
-            # runs whose case finished in a retry or remains failed
             leftover = [rj for rj in runs.values() if not self.root.done(self.root.run_dir(rj["run_hash"]))
                         and not (self.root.failed_dir(rj["run_hash"]) / "status.json").exists()]
             if leftover:
@@ -334,31 +371,33 @@ class Driver:
                     run_run(self.project, self.root, rj)
             break
 
-    def _runtime_estimate(self) -> float:
+    def _runtime_estimate(self, st=None) -> float:
+        st = st or self.pipeline.stages[self.order[0]]
         rows = self.db.query("SELECT AVG(wall_s) AS w FROM cases WHERE backend = ? AND status='done'",
-                             [self.stage.backend.name])
+                             [st.backend.name])
         w = rows[0]["w"] if rows else None
-        return float(w) if w else float(self.stage.resources.get("runtime_hint", 10.0))
+        return float(w) if w else float(st.resources.get("runtime_hint", 10.0))
 
     # ---- results --------------------------------------------------------------------------------------
     def result(self, row: Row) -> RowResult:
         if row.status == "invalid":
             return RowResult(row.row_id, row.values, "invalid")
-        d = self.root.run_dir(row.run_hash)
-        if not self.root.done(d):
-            f = self.root.failed_dir(row.run_hash) / "status.json"
-            row.status = "failed"
-            row.reason = read_json(f).get("reason", "") if f.exists() else "no result"
-            return RowResult(row.row_id, row.values, "failed")
-        m = read_json(d / "metrics.json")
+        run_hashes = [v["run_hash"] for v in row.stages.values()] if row.stages else [row.run_hash]
+        m = {}
+        for h in run_hashes:
+            d = self.root.run_dir(h)
+            if not self.root.done(d):
+                f = self.root.failed_dir(h) / "status.json"
+                row.status = "failed"
+                row.reason = row.reason or (read_json(f).get("reason", "") if f.exists() else "no result")
+                return RowResult(row.row_id, row.values, "failed")
+            m.update(read_json(d / "metrics.json"))
         vals = {k: v["value"] for k, v in m.items()}
-        objectives = {}
-        for name, o in self.spec.objectives.items():
-            objectives[name] = vals.get(o.value)
+        objectives = {name: vals.get(o.value) for name, o in self.spec.objectives.items()}
         constraints = {}
         for name, c in self.spec.constraints.items():
-            md_units = m.get(c.value, {}).get("unit", "")
-            d_ = None if md_units in ("", "1", "%", "text") else dim_of(self.project.units.parse(f"1 {md_units}"))
+            unit = m.get(c.value, {}).get("unit", "")
+            d_ = None if unit in ("", "1", "%", "text") else dim_of(self.project.units.parse(f"1 {unit}"))
             constraints[name] = self._slack(vals.get(c.value), c, d_)
         row.status = "done"
         return RowResult(row.row_id, row.values, "done", objectives, constraints)
@@ -374,9 +413,10 @@ class Driver:
                 var = self.spec.variables[k]
                 db.upsert("row_values", {"study_id": self.study_id, "row_id": r.row_id, "name": k, "value_num": num,
                                          "value_text": text, "unit": var.unit})
-            if r.run_hash:
-                db.upsert("row_runs", {"study_id": self.study_id, "row_id": r.row_id, "stage": self.stage_name,
-                                       "run_id": r.run_hash, "case_id": r.case_hash})
+            for sname, info in (r.stages or {}).items():
+                db.upsert("row_runs", {"study_id": self.study_id, "row_id": r.row_id, "stage": sname,
+                                       "run_id": info["run_hash"], "case_id": info["case_hash"],
+                                       "stage_index": self.order.index(sname)})
         db.commit()
         self._write_runsheet()
 
@@ -412,8 +452,10 @@ class Driver:
                 vals[k] = int(vals[k])
         runs = self.db.query("SELECT * FROM row_runs WHERE study_id=? AND row_id=?", [self.study_id, r["row_id"]])
         row = Row(r["row_id"], r["round"], r["origin"], vals, r["status"], r["invalid_reason"] or "")
-        if runs:
-            row.case_hash, row.run_hash = runs[0]["case_id"], runs[0]["run_id"]
+        for x in runs:
+            row.stages[x["stage"]] = {"case_hash": x["case_id"], "run_hash": x["run_id"]}
+            if x["stage"] == self.stage_name:
+                row.case_hash, row.run_hash = x["case_id"], x["run_id"]
         return row
 
     def _register(self):
@@ -504,7 +546,7 @@ class Driver:
         asked = sampler.ask(None)[:max_rows]
         rows = [self.build_row(Row(i, 0, cfg["kind"], v)) for i, v in enumerate(asked)]
         valid = [r for r in rows if r.status == "pending"]
-        cases = {r.case_hash for r in valid}
+        cases = {r.stages[self.order[0]]["case_hash"] for r in valid}
         cached = {h for h in cases if self.root.done(self.root.case_dir(h))}
         fails: dict[str, int] = {}
         for r in rows:
@@ -513,7 +555,7 @@ class Driver:
                 fails[key] = fails.get(key, 0) + 1
         res = self.stage.resources
         n_slots = self.executor.capacity(int(res.get("cores", 1)), float(res.get("memory", 0)))
-        runtime = self._runtime_estimate()
+        runtime = self._runtime_estimate(self.stage)
         todo = len(cases) - len(cached)
         sizes = self.executor.partition(todo, n_slots, runtime, res)
         return {"study": self.study_id, "rows": len(rows), "valid": len(valid), "invalid": len(rows) - len(valid),

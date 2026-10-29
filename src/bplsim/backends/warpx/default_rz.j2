@@ -1,0 +1,38 @@
+# WarpX input deck (RZ, electrostatic), rendered by bplsim. A STARTING POINT: validate every parameter
+# against the installed WarpX version before trusting results.
+max_step = {{ fid.steps }}
+amr.n_cell = {{ fid.cells }}
+amr.max_level = 0
+geometry.dims = RZ
+geometry.prob_lo = 0.0 {{ -params.get("pic_upstream_length", 0.05) }}
+geometry.prob_hi = {{ params.get("pic_radius", 0.06) }} {{ params.get("pic_downstream_length", 0.05) }}
+boundary.field_lo = none pec
+boundary.field_hi = pec pec
+boundary.particle_lo = none absorbing
+boundary.particle_hi = absorbing absorbing
+warpx.do_electrostatic = labframe
+algo.particle_shape = 1
+
+# applied magnetic field from the magnetostatic stage (openPMD written by bplsim)
+warpx.B_ext_grid_init_style = read_from_file
+warpx.read_fields_from_path = {{ inputs.B_external }}
+
+particles.species_names = electrons ions
+electrons.species_type = electron
+electrons.injection_style = nuniformpercell
+electrons.num_particles_per_cell_each_dim = {{ fid.particles_per_cell }} 1 1
+ions.species_type = xenon
+ions.charge = q_e
+ions.injection_style = nuniformpercell
+ions.num_particles_per_cell_each_dim = {{ fid.particles_per_cell }} 1 1
+
+diagnostics.diags_names = diag1
+diag1.intervals = {{ fid.diag_period }}
+diag1.diag_type = Full
+diag1.fields_to_plot = Br Bt Bz Er Ez rho
+diag1.format = openpmd
+diag1.openpmd_backend = h5
+
+warpx.reduced_diags_names = energy
+energy.type = ParticleEnergy
+energy.intervals = {{ fid.diag_period }}

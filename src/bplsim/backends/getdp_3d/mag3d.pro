@@ -8,7 +8,11 @@
 
 Include "regions.pro";
 
-DefineConstant[ NL_tol_abs = 1e-6, NL_tol_rel = 1e-4, NL_iter_max = 60 ];
+DefineConstant[ NL_tol_abs = 1e-6, NL_tol_rel = 1e-4, NL_iter_max = 60, NL_relax = 1.0 ];
+// Newton (regions.pro sets Newton = 1 for nonlinear solves by default): the B-H tangent dh/db as a JacNL
+// term, increments solved with GenerateJac/SolveJac, B-H interpolated with Akima (continuous tangent).
+// GetDP 3.5 segfaults on a plain Generate when the formulation holds a JacNL term, so the Newton path
+// assembles only through GenerateJac (both notes from the legacy assembly pipeline, 2026-10-06).
 
 Jacobian { { Name JVol; Case { { Region All; Jacobian Vol; } } } }
 
@@ -38,6 +42,9 @@ Formulation {
     Equation {
       Galerkin { [ nu[] * Dof{d a}, {d a} ]; In Region[{Air, Windings, IronLin}]; Jacobian JVol; Integration Int1; }
       Galerkin { [ nu[{d a}] * Dof{d a}, {d a} ]; In IronNL; Jacobian JVol; Integration Int1; }
+      If(Newton)
+        Galerkin { JacNL[ dhdb[{d a}] * Dof{d a}, {d a} ]; In IronNL; Jacobian JVol; Integration Int1; }
+      EndIf
       Galerkin { [ -$IFrac * Js[], {a} ]; In Windings; Jacobian JVol; Integration Int1; }
     }
   }
@@ -47,6 +54,13 @@ Resolution {
   { Name Res; System { { Name S; NameOfFormulation MS; } }
     Operation {
       InitSolution[S];
+      If(NonLinear && Newton)
+      For n In {0:#RampFrac()-1}
+        Evaluate[ $IFrac = RampFrac(n) ];
+        IterativeLoop[NL_iter_max, NL_tol_rel, NL_relax]{ GenerateJac[S]; SolveJac[S]; }
+        Print[{n}, Format "ramp step %g: Newton done"];
+      EndFor
+      Else
       For n In {0:#RampFrac()-1}
         Evaluate[ $IFrac = RampFrac(n) ];
         Generate[S]; Solve[S];
@@ -60,6 +74,7 @@ Resolution {
           Print[{n, $iter, $res / $res0}, Format "ramp step %g: %g iterations, relative residual %g"];
         EndIf
       EndFor
+      EndIf
       SaveSolution[S];
     }
   }

@@ -743,6 +743,13 @@ def _coerce_by_ann(design, ann, spec, raw, where):
         v, _ = coerce(val, target, units, where)
         return v
     origin = typing.get_origin(ann)
+    if origin in (typing.Union, getattr(__import__("types"), "UnionType", None)):
+        args = [a for a in typing.get_args(ann) if a is not type(None)]
+        if raw is None:
+            return None
+        containers = [a for a in args if typing.get_origin(a) in (list, tuple)]
+        if containers and isinstance(raw, (list, tuple)):
+            ann, origin = containers[0], typing.get_origin(containers[0])
     if origin in (list, tuple) and isinstance(raw, (list, tuple)):
         args = typing.get_args(ann)
         if origin is tuple and args and args[-1] is not Ellipsis:
