@@ -13,7 +13,7 @@ from .errors import ConfigError
 from .units import DIMS, DEFAULT_UNITS
 from .yamlio import load_yaml
 
-SITE_KEYS = {"name", "data_root", "executor", "local", "slurm", "container", "tools", "description"}
+SITE_KEYS = {"name", "data_root", "executor", "local", "slurm", "container", "tools", "description", "remote"}
 
 
 def sites_dir() -> Path:
@@ -29,6 +29,7 @@ class Site:
     slurm: dict = field(default_factory=dict)
     container: str | None = None
     tools: dict = field(default_factory=dict)
+    remote: dict = field(default_factory=dict)
 
     def apply_tools(self):
         """Expose tool paths to backends (and to worker processes) as BPLSIM_TOOL_<NAME>."""
@@ -63,7 +64,7 @@ def load_site(name: str | None) -> Site:
                 raise doc.error(f"unknown site key {k!r} (allowed: {', '.join(sorted(SITE_KEYS))})", k)
         s = Site(name=data.get("name", path.stem), data_root=data.get("data_root", Site.data_root),
                  executor=data.get("executor", "local"), local=data.get("local") or {}, slurm=data.get("slurm") or {},
-                 container=data.get("container"), tools=data.get("tools") or {})
+                 container=data.get("container"), tools=data.get("tools") or {}, remote=data.get("remote") or {})
     s.apply_tools()
     return s
 

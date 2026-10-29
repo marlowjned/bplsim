@@ -197,18 +197,37 @@ def _plain(v):
     return v
 
 
-def run_task(task_file: str | Path, jobs: str | None = None) -> dict[str, str]:
-    task = read_json(Path(task_file))
-    project = _project(task["project"])
-    root = DataRoot(task["data_root"])
-    sel = task["jobs"]
-    if jobs:
-        lo, _, hi = jobs.partition("-")
-        sel = sel[int(lo): int(hi or lo) + 1]
+def _run_group(project_dir: str, data_root: str, group: list[dict]) -> dict[str, str]:
+    project = _project(project_dir)
+    root = DataRoot(data_root)
     out = {}
-    for job in sel:
+    for job in group:
         if job["type"] == "case":
             out[job["case_hash"]] = run_case(project, root, job)
         else:
             out[job["run_hash"]] = run_run(project, root, job)
+    return out
+
+
+def run_task(task_file: str | Path, jobs: str | None = None, workers: int = 1) -> dict[str, str]:
+    """Run a task's jobs. With workers > 1 (one node of a Slurm array task), groups of jobs (a case with
+    its runs) run in parallel processes."""
+    task = read_json(Path(task_file))
+    sel = task["jobs"]
+    if jobs:
+        lo, _, hi = jobs.partition("-")
+        sel = sel[int(lo): int(hi or lo) + 1]
+    groups: dict[str, list[dict]] = {}
+    for job in sel:
+        key = job["case_hash"] if job["type"] == "case" or job["case_hash"] in groups else "run:" + job["run_hash"]
+        groups.setdefault(key, []).append(job)
+    if workers <= 1 or len(groups) <= 1:
+        return _run_group(task["project"], task["data_root"], sel)
+    import multiprocessing as mp
+    from concurrent.futures import ProcessPoolExecutor
+    out: dict[str, str] = {}
+    with ProcessPoolExecutor(max_workers=min(workers, len(groups)), mp_context=mp.get_context("spawn")) as ex:
+        for res in ex.map(_run_group, [task["project"]] * len(groups), [task["data_root"]] * len(groups),
+                          list(groups.values())):
+            out.update(res)
     return out

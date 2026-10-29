@@ -154,10 +154,11 @@ def study_status(study: Path, project: Optional[Path] = typer.Option(None, "--pr
 
 
 @app.command("run-task")
-def run_task_cmd(task: Path, jobs: Optional[str] = typer.Option(None, "--jobs")):
+def run_task_cmd(task: Path, jobs: Optional[str] = typer.Option(None, "--jobs"),
+                 workers: int = typer.Option(1, "--workers", help="Parallel job groups (one node)")):
     """Worker entry point: run the jobs of a task file (used by executors)."""
     from .execute.runtask import run_task
-    out = run_task(task, jobs)
+    out = run_task(task, jobs, workers)
     typer.echo(json.dumps(out))
 
 
@@ -225,6 +226,32 @@ def plot(figure_id: str, out: Path = typer.Option(..., "--out", "-o"),
         params[k] = YAML(typ="safe").load(v)
     res = Results(data_root_for(pdir, data, load_site(site)), pr.units)
     typer.echo(render(pr, res, figure_id, params, out))
+
+
+sync_app = typer.Typer(no_args_is_help=True, help="Move results between sites (ssh + tar).")
+app.add_typer(sync_app, name="sync")
+
+
+@sync_app.command("pull")
+def sync_pull(site: str = typer.Option(..., "--site"), study: Optional[str] = typer.Option(None, "--study"),
+              with_raw: bool = typer.Option(False, "--with-raw"),
+              project: Optional[Path] = typer.Option(None, "--project", "-p"),
+              data: Optional[Path] = typer.Option(None, "--data")):
+    """Copy finished case/run folders (and optionally a study folder) from a remote site, then collect."""
+    from .execute.folders import DataRoot
+    from .execute.sync import pull
+    from .project import Project
+    from .sites import load_site
+    from .store.collect import collect as do_collect
+    from .store.db import DB
+    pdir = find_project(project)
+    name = Project.load(pdir).name
+    local = data_root_for(pdir, data, load_site(None))
+    n = pull(load_site(site), name, local, with_raw, study)
+    root = DataRoot(local)
+    db = DB(root.db_path)
+    typer.echo(f"pulled {n} folder(s); collected {do_collect(root, db)}")
+    db.close()
 
 
 report_app = typer.Typer(no_args_is_help=True, help="Reports regenerated from stored results.")
