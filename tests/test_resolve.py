@@ -112,3 +112,22 @@ def test_ids_and_wrong_kind(het):
         het.entry("het:materials/unobtainium")
     with pytest.raises(ConfigError):
         het.material("het:parts/cap_flat_r17p6")
+
+
+def test_material_swap_through_an_assembly_parameter(tmp_path):
+    """One variable switches the material of several parts: an assembly param holds a material id."""
+    proj = tmp_path / "p"
+    shutil.copytree(HET, proj)
+    a = proj / "library" / "assemblies" / "bpl1000_bn.yaml"
+    text = a.read_text()
+    text = text.replace("  cap_back_z:", "  iron: het:materials/a36\n  cap_back_z:", 1)
+    text = text.replace("      material: het:materials/steel_1018", '      material: "${ params.iron }"')
+    text = text.replace("      material: het:materials/a36", '      material: "${ params.iron }"')
+    a.write_text(text)
+    pr = Project.load(proj)
+    d = Resolver(pr, "het:assemblies/bn_screened").resolve()
+    assert d.values["parts.inner_core.material"].id == "het:materials/a36"
+    rs = RowSpec(assignments={"params.iron": ("het:materials/steel_1018", "study variable iron")})
+    d = Resolver(pr, "het:assemblies/bn_screened", rs).resolve()
+    assert d.values["parts.inner_core.material"].id == "het:materials/steel_1018"
+    assert d.values["parts.outer_posts.material"].id == "het:materials/steel_1018"
