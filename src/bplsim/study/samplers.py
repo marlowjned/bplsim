@@ -283,13 +283,11 @@ class OptunaSampler(Sampler):
 
     def _make(self):
         seed = self.cfg.get("seed")
-        cf = (lambda t: t.user_attrs.get("constraints", [0.0]))
+        # constraints are attached to each trial with set_constraint (optuna >= 5); <= 0 is feasible
         if self.cfg["kind"] == "optuna_nsga2":
-            sampler = self.optuna.samplers.NSGAIISampler(seed=seed, constraints_func=cf,
-                                                         population_size=self.round_size)
+            sampler = self.optuna.samplers.NSGAIISampler(seed=seed, population_size=self.round_size)
         else:
-            sampler = self.optuna.samplers.TPESampler(seed=seed, constraints_func=cf,
-                                                      n_startup_trials=int(self.cfg.get("startup", 10)))
+            sampler = self.optuna.samplers.TPESampler(seed=seed, n_startup_trials=int(self.cfg.get("startup", 10)))
         self.study = self.optuna.create_study(directions=self.dirs, sampler=sampler)
 
     def ask(self, n=None):
@@ -306,10 +304,10 @@ class OptunaSampler(Sampler):
 
     def _tell_one(self, trial, r: RowResult):
         if r.status != "done" or any(r.objectives.get(o) is None for o in self.objectives):
-            trial.set_user_attr("constraints", [1.0])
             self.study.tell(trial, state=self.optuna.trial.TrialState.FAIL)
             return
-        trial.set_user_attr("constraints", [-s for s in r.constraints.values()] or [0.0])
+        for name, slack in r.constraints.items():
+            trial.set_constraint(name, -float(slack) if math.isfinite(slack) else 1e30)
         vals = [float(r.objectives[o]) for o in self.objectives]
         self.study.tell(trial, vals if len(vals) > 1 else vals[0])
 
@@ -329,8 +327,8 @@ class OptunaSampler(Sampler):
             ft = self.optuna.trial.create_trial(
                 params=params, distributions=self.dists,
                 values=vals, state=self.optuna.trial.TrialState.COMPLETE if ok else self.optuna.trial.TrialState.FAIL,
-                user_attrs={"constraints": [-s for s in r.constraints.values()] or [0.0]} if ok else
-                {"constraints": [1.0]})
+                constraints=({k: (-float(v) if math.isfinite(v) else 1e30) for k, v in r.constraints.items()}
+                             if ok and r.constraints else None))
             self.study.add_trial(ft)
 
 

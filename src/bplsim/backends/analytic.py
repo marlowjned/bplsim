@@ -271,7 +271,8 @@ class AnalyticFlaky(AnalyticLoops):
         if hit and inputs["mode"] == "timeout":
             time.sleep(float(resources.get("timeout", 1.0)) + 5)
         if hit and inputs["mode"] == "crash":
-            marker = Path(workdir).parent / (Path(workdir).name.split(".tmp")[0] + ".crashed_once")
+            tmpdir = Path(workdir).parent
+            marker = tmpdir.parent / (tmpdir.name.split(".tmp")[0] + ".crashed_once")
             if not marker.exists():
                 marker.write_text("x")
                 os._exit(17)

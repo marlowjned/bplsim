@@ -1,0 +1,4 @@
+probes:
+  s: {probe: std:probes/scalars}
+metrics:
+  f: {metric: std:metrics/scalar, inputs: {data: s}}

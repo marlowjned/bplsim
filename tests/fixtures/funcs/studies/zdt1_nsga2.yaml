@@ -1,0 +1,13 @@
+design: funcs:assemblies/x30
+pipeline: funcs:pipelines/zdt1
+measure: funcs:measurements/scalars
+variables:
+  x1: {param: params.x1, range: [0, 1]}
+  x2: {param: params.x2, range: [0, 1]}
+  x3: {param: params.x3, range: [0, 1]}
+  x4: {param: params.x4, range: [0, 1]}
+  x5: {param: params.x5, range: [0, 1]}
+  x6: {param: params.x6, range: [0, 1]}
+objectives: {f1: {minimize: f.f1}, f2: {minimize: f.f2}}
+sampler: {kind: optuna_nsga2, seed: 2, round_size: 20}
+budget: {runs: 600}

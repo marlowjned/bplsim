@@ -1,0 +1,4 @@
+name: funcs
+namespace: funcs
+libraries:
+  std: {builtin: true}

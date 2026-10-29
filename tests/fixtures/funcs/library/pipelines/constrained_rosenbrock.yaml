@@ -1,0 +1,4 @@
+stages:
+  eval:
+    backend: analytic_functions ^1.0
+    fidelity: {function: constrained_rosenbrock}

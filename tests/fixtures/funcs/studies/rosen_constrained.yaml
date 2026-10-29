@@ -1,0 +1,10 @@
+design: funcs:assemblies/xy
+pipeline: funcs:pipelines/constrained_rosenbrock
+measure: funcs:measurements/scalars
+variables:
+  x1: {param: params.x1, range: [-1.5, 1.5]}
+  x2: {param: params.x2, range: [-1.5, 1.5]}
+objectives: {f: {minimize: f.f}}
+constraints: {disk: {value: f.g, min: 0}}
+sampler: {kind: optuna_tpe, seed: 1, round_size: 10, startup: 15}
+budget: {runs: 150}

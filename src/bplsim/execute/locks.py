@@ -13,6 +13,29 @@ STALE = 600.0
 BEAT = 60.0
 
 
+def pid_alive(pid: int) -> bool:
+    """Whether a process exists on this machine (never signals it; os.kill would terminate on Windows)."""
+    if pid <= 0:
+        return False
+    if os.name == "nt":
+        import ctypes
+        k32 = ctypes.windll.kernel32
+        h = k32.OpenProcess(0x1000, False, pid)          # PROCESS_QUERY_LIMITED_INFORMATION
+        if not h:
+            return False
+        code = ctypes.c_ulong()
+        ok = k32.GetExitCodeProcess(h, ctypes.byref(code))
+        k32.CloseHandle(h)
+        return bool(ok) and code.value == 259             # STILL_ACTIVE
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
 class Lock:
     def __init__(self, path: Path, stale: float = STALE, beat: float = BEAT):
         self.path = Path(path)
@@ -54,6 +77,8 @@ class Lock:
     def _is_stale(self) -> bool:
         try:
             info = json.loads(self.path.read_text() or "{}")
+            if info.get("host") == socket.gethostname() and not pid_alive(int(info.get("pid", 0))):
+                return True                                  # owner on this machine is gone
             return time.time() - float(info.get("time", 0)) > self.stale
         except (OSError, ValueError):
             try:

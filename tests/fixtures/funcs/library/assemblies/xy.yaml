@@ -1,0 +1,4 @@
+description: "Two free variables for test functions"
+params:
+  x1: 0.0
+  x2: 0.0
