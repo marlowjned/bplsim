@@ -10,9 +10,10 @@ def _bash() -> str:
     if os.name == "nt":
         git = shutil.which("git")
         if git:
-            for cand in (Path(git).parents[1] / "bin" / "bash.exe", Path(git).parents[1] / "usr" / "bin" / "bash.exe"):
-                if cand.exists():
-                    return str(cand)
+            for root in Path(git).parents:          # git.exe may be in Git/cmd, Git/bin or Git/mingw64/bin
+                for cand in (root / "bin" / "bash.exe", root / "usr" / "bin" / "bash.exe"):
+                    if cand.exists():
+                        return str(cand)
     return shutil.which("bash") or "bash"
 
 
