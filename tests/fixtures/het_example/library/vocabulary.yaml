@@ -1,0 +1,5 @@
+mu_r_linear:     [mu_r, relative_permeability]
+bh_curve:        [bh, b_h_curve]
+saturation_knee: [b_knee, knee]
+resistivity:     [rho_e, electrical_resistivity]
+density:         [rho, mass_density]

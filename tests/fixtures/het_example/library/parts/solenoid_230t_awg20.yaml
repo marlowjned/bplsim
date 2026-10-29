@@ -1,0 +1,3 @@
+type: het:part_types/solenoid
+description: "Inner coil: 230 turns AWG 20, 46 per layer"
+params: {wire: het:materials/wire_awg20_mw16c, turns: 230, per_layer: 46, circuit: inner}

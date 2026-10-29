@@ -1,0 +1,12 @@
+name: het
+namespace: het
+bplsim: ">=0.1,<0.2"
+libraries:
+  std: {builtin: true}
+units:
+  length: mm
+  angle: deg
+  current: A
+  temperature: degC
+  magnetic_flux_density: G
+  power: W

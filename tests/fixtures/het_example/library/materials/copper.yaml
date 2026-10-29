@@ -1,0 +1,4 @@
+description: "Annealed copper"
+properties:
+  density: 8960 kg/m^3
+  resistivity: {value: 1.724e-8 ohm*m, at: 20 degC, temp_coeff: 0.00393 1/K}

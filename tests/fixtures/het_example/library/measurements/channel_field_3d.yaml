@@ -1,0 +1,10 @@
+extends: het:measurements/channel_field_2d
+probes:
+  profile_post:    {probe: het:probes/channel_profile, with: {azimuth: 0}}
+  profile_between: {probe: het:probes/channel_profile,
+                    with: {azimuth: "${ parts.outer_posts.pitch / 2 }"}}
+  ring_mid:  {probe: het:probes/channel_ring, with: {z: -20}}
+  ring_exit: {probe: het:probes/channel_ring, with: {z: 0}}
+metrics:
+  ripple_mid:  {metric: std:metrics/ring_ripple, inputs: {ring: ring_mid}}
+  ripple_exit: {metric: std:metrics/ring_ripple, inputs: {ring: ring_exit}}

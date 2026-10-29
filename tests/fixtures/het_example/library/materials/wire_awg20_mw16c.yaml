@@ -1,0 +1,6 @@
+extends: het:materials/copper
+description: "AWG 20 magnet wire, heavy polyimide (MW 16-C), 240 C"
+properties:
+  wire_diameter: 0.812 mm
+  insulated_diameter: 0.89 mm
+  max_temperature: 240 degC

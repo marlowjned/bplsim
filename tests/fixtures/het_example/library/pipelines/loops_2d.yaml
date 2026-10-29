@@ -1,0 +1,11 @@
+description: "Air-core analytic loops (tests): same geometry, closed-form field"
+stages:
+  mag:
+    backend: analytic_loops ^1.0
+    fidelity: {filaments: 3, cell: 1.0}
+    equivalence:
+      outer_posts: smeared_ring
+      outer_coils: winding_sheets
+      front_plate: equal_area_disc
+      back_plate:  equal_area_disc
+    resources: {cores: 1, memory: 0.2 GB}

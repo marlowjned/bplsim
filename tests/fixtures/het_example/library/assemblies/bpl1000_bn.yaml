@@ -1,0 +1,38 @@
+description: "BPL-1000 with the BN channel (illustrative values)"
+params:
+  back_plate_inner_z: -50.8 mm
+  front_plate_inner_z: "${ -parts.front_plate.thickness }"
+  cap_back_z: "${ -parts.pole_cap.thickness if parts.pole_cap else 0 }"
+parts:
+  channel:     {use: het:parts/bn_channel_v2, at: 0}
+  front_plate: {use: het:parts/plate_6in_a36, at: 0}
+  back_plate:  {use: het:parts/plate_6in_a36, at: "${ params.back_plate_inner_z }",
+                params: {bore_radius: 3.4}}
+  pole_cap:    {use: het:parts/cap_flat_r17p6, at: 0, optional: true}
+  inner_core:
+    type: het:part_types/core
+    at: "${ params.cap_back_z }"
+    params:
+      radius: 9.525
+      length: "${ params.cap_back_z - params.back_plate_inner_z }"
+      material: het:materials/steel_1018
+  inner_coil:  {use: het:parts/solenoid_230t_awg20, at: "${ params.cap_back_z }", params: {on: inner_core}}
+  outer_posts:
+    type: het:part_types/post_array
+    at: "${ params.front_plate_inner_z }"
+    params:
+      count: 4
+      ring_radius: 63.5
+      post_radius: 9.525
+      length: "${ params.front_plate_inner_z - params.back_plate_inner_z }"
+      material: het:materials/a36
+  outer_coils: {use: het:parts/post_coils_184t_awg20, at: "${ params.front_plate_inner_z }",
+                params: {on: outer_posts}}
+checks:
+  cap_in_bore:    {metric: std:metrics/clearance, with: {pairs: [[pole_cap, channel, 0.1]]}}
+  posts_on_plate: {metric: std:metrics/within, with: {inner: outer_posts, outer: front_plate, min_edge: 1.0}}
+op:
+  temperature: 20
+  circuits:
+    inner: {current: 1.53}
+    outer: {current: 1.21}

@@ -1,0 +1,5 @@
+extends: het:materials/a36
+description: "AISI 1018, annealed"
+properties:
+  mu_r: 2200
+  saturation_knee: 1.6 T

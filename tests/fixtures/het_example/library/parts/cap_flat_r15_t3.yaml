@@ -1,0 +1,3 @@
+type: het:part_types/pole_cap_flat
+description: "Thin flat pole cap, R15, 3 mm thick (candidate)"
+params: {radius: 15.0, thickness: 3.0, material: het:materials/steel_1018}

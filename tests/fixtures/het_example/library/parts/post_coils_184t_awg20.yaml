@@ -1,0 +1,3 @@
+type: het:part_types/post_coils
+description: "Outer coils: 184 turns AWG 20 per post, 46 per layer"
+params: {wire: het:materials/wire_awg20_mw16c, turns: 184, per_layer: 46, circuit: outer}

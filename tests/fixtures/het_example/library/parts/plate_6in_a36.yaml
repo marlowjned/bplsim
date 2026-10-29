@@ -1,0 +1,3 @@
+type: het:part_types/plate
+description: "6 in square A36 plate, 3/8 in thick, 3 in bore"
+params: {shape: square, side: 152.4, thickness: 9.525, bore_radius: 38.1, material: het:materials/a36}

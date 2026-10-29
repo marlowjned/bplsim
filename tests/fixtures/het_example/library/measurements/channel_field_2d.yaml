@@ -1,0 +1,10 @@
+description: "Channel profile and shape, iron saturation, field angle at the inner wall, coil power"
+probes:
+  profile: {probe: het:probes/channel_profile}
+  iron:    {probe: std:probes/part_fields, with: {select: magnetic}}
+  wall:    {probe: het:probes/channel_wall, with: {wall: inner_wall}}
+metrics:
+  shape:      {metric: het:metrics/field_shape, inputs: {profile: profile}}
+  sat:        {metric: std:metrics/saturation,  inputs: {parts: iron}}
+  wall_angle: {metric: het:metrics/wall_angle,  inputs: {surface: wall}}
+  power:      {metric: het:metrics/coil_power}
