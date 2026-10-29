@@ -55,9 +55,13 @@ Tests: 36 fast tests (`-m "not slow"`), 1 slow subprocess test, 2 HET parity tes
 
 ## Open issues
 
-- **O1 Nonlinear 3-D convergence.** On the coarse test design at 2.0 A / 1.6 A, Picard stalled (relative residual
-  ~1 at the 50 % ramp step, then diverged). Newton with Akima-interpolated B-H (the legacy fallback) is
-  implemented; see the log for its result. The legacy pipeline had the same difficulty (`nl_watchdog.py`).
+- **O1 Nonlinear 3-D convergence.** Coarse test design (240k tets) at 2.0 A / 1.6 A, AISI 1008 proxy B-H:
+  Picard stalled (relative residual ~1 at 50 %, then diverged). Newton + Akima B-H (legacy fallback): the 50 %
+  step converged in 4 iterations; the 50 -> 100 % jump stalled (61 iterations, relative increment 7.2e-4 >
+  1e-4), as the legacy notes describe for large ramp steps. Fixed a bug found on the way: unconverged
+  nonlinear solves were stored as "ok"; they now fail the case with the reason. Rerun with a finer ramp
+  (0.5, 0.7, 0.85, 0.95, 1.0) was interrupted by the WSL install: rerun with
+  `.venv/Scripts/python.exe scratch/run_nl.py` (about 30 min) and add it as a slow test if it converges.
 - **O2** `bplsim schema export` (JSON Schemas for editor autocompletion) is not implemented: validation is
   hand-written rather than pydantic models, so schemas would have to be written separately.
 - **O3** CI and the Docker image are written but have never run (no push, no Docker on this machine); the GetDP
@@ -96,7 +100,8 @@ Tests: 36 fast tests (`-m "not slow"`), 1 slow subprocess test, 2 HET parity tes
 
 ## Next steps
 
-1. Finish O1 (nonlinear 3-D convergence) and add a slow 3-D test.
+1. Finish O1: rerun `scratch/run_nl.py` (finer ramp); if it converges, add a slow nonlinear 3-D test.
+   Next session also: WSL2 + the Linux workspace (the user's next priority, 2026-10-29).
 2. Run `../HET/sim/studies/design_a_search.yaml` (compass on the real backend) and port the remaining legacy
    studies (O6).
 3. Real-cluster and real-WarpX runs (O4); push and run CI (O3).
