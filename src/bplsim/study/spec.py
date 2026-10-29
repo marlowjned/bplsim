@@ -102,6 +102,9 @@ def load_study(project, path: str | Path) -> StudySpec:
     measure = data.get("measure") or {}
     if isinstance(measure, str):
         measure = {"use": measure}
+    for k in measure:
+        if k not in ("use", "add"):
+            raise doc.error(f"unknown key {k!r} in measure (allowed: use, add)", "measure", k)
     from ..pipeline import load_pipeline
     pipeline = load_pipeline(project, data["pipeline"])
     # resolve the baseline once, to learn the targets' types and dimensions

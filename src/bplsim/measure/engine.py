@@ -82,11 +82,18 @@ def load_measurement_set(project, ms_id: str | None, add: dict | None = None) ->
     for data in reversed(chain):
         _merge_ms(ms, data, f"measurement set")
     if add:
-        _merge_ms(ms, add, "study measure.add")
+        # study shorthand: `add:` lists metric aliases directly; `add: {probes: ..., metrics: ...}` also works
+        if set(add) <= {"probes", "metrics"}:
+            _merge_ms(ms, add, "study measure.add")
+        else:
+            _merge_ms(ms, {"metrics": add}, "study measure.add")
     return ms
 
 
 def _merge_ms(ms: MeasurementSet, data: dict, where: str):
+    unknown = set(data) - {"probes", "metrics", "description", "extends"}
+    if unknown:
+        raise ConfigError(f"{where}: unknown key(s) {sorted(unknown)} (allowed: probes, metrics)")
     for alias, spec in (data.get("probes") or {}).items():
         if spec is None:
             ms.probes.pop(alias, None)

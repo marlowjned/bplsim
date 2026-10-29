@@ -336,8 +336,20 @@ KINDS = {"grid": Grid, "list": Listed, "sobol": QMC, "lhs": QMC, "product": Prod
          "optuna_tpe": OptunaSampler, "optuna_nsga2": OptunaSampler}
 
 
+ALLOWED = {"grid": {"vars", "levels"}, "list": {"rows", "csv"}, "sobol": {"vars", "n", "seed"},
+           "lhs": {"vars", "n", "seed"}, "product": {"of"}, "compass": {"start", "steps", "max_iter"},
+           "optuna_tpe": {"seed", "round_size", "startup"}, "optuna_nsga2": {"seed", "round_size"}}
+
+
 def make_sampler(variables: dict, cfg: dict, objectives: dict) -> Sampler:
     kind = cfg.get("kind")
     if kind not in KINDS:
         raise ConfigError(f"unknown sampler kind {kind!r} (known: {', '.join(KINDS)})")
+    unknown = {k for k in cfg if not k.startswith("_") and k != "kind"} - ALLOWED[kind]
+    if unknown:
+        raise ConfigError(f"sampler {kind}: unknown setting(s) {sorted(unknown)} "
+                          f"(allowed: {', '.join(sorted(ALLOWED[kind]))})")
+    for n in cfg.get("vars") or []:
+        if n not in variables:
+            raise ConfigError(f"sampler {kind}: no study variable {n!r}")
     return KINDS[kind](variables, cfg, objectives)
