@@ -652,6 +652,12 @@ class Resolver:
                 self.value(path)
             except (ResolveError, ExpressionError) as e:
                 errors.append(e)
+        seen, unique = set(), []
+        for e in errors:
+            if str(e) not in seen:
+                seen.add(str(e))
+                unique.append(e)
+        errors = unique
         if errors:
             if len(errors) == 1:
                 raise errors[0]

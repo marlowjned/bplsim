@@ -164,6 +164,7 @@ class LoopsField(FieldAccess):
 
 
 class AnalyticLoops(Backend):
+    measure_needs_raw = False       # fields are recomputed from the inputs
     name = "analytic_loops"
     version = "1.0.0"
     capabilities = Capabilities(dims=2, symmetry="axisymmetric", superposable=True)
@@ -216,6 +217,7 @@ class ScalarField(FieldAccess):
 
 
 class AnalyticFunctions(Backend):
+    measure_needs_raw = False
     name = "analytic_functions"
     version = "1.0.0"
     capabilities = Capabilities(dims=0, symmetry="none", superposable=False)

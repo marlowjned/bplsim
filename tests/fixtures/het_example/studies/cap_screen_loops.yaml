@@ -1,0 +1,27 @@
+description: "Cap choice x inner screen x ampere-turn ratio vs the half-Gaussian target (analytic loops)"
+design:   het:assemblies/bn_screened
+pipeline: het:pipelines/loops_2d
+measure:
+  use: het:measurements/channel_field_2d
+  add:
+    misfit: {metric: std:metrics/profile_misfit, inputs: {profile: profile},
+             with: {reference: het:references/half_gaussian_exit, component: B_r}}
+overrides:
+  op.temperature: 80
+variables:
+  cap:    {slot: pole_cap, choices: [het:parts/cap_flat_r17p6, het:parts/cap_flat_r15_t3, none]}
+  is_gap: {param: params.inner_screen_gap, range: [10, 30]}
+  is_t:   {param: parts.inner_screen.thickness, range: [0.5, 3.0]}
+  q:      {range: [0.4, 1.0],
+           sets: {op.circuits.outer.current:
+                  "${ op.circuits.inner.current * q * parts.inner_coil.turns / parts.outer_coils.turns }"}}
+normalize:
+  scale: [op.circuits.inner.current, op.circuits.outer.current]
+  so_that: {value: shape.peak_Br, equals: 165}
+objectives:
+  misfit: {minimize: misfit.rms_pct}
+constraints:
+  saturation: {value: sat.max_fraction, max: 0.8}
+  power:      {value: power.total, max: 5000}
+sampler: {kind: grid, levels: {is_gap: 2, is_t: 2, q: 2}}
+retention: {raw: purge_on_success}

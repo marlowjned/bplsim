@@ -16,9 +16,11 @@ def clearance(design, pairs: list[tuple[Slot, Slot, Length]]):
             continue
         gap, area = g
         if area > 1e-12:
-            gap = -(area ** 0.5)
-        slack = gap - gmin
-        details.append(f"{a} - {b} gap {gap * 1e3:.4g} mm (min {gmin * 1e3:.4g})")
+            slack = -(area ** 0.5) - gmin          # negative, growing with the overlap
+            details.append(f"{a} - {b} overlap {area * 1e6:.4g} mm^2 (min gap {gmin * 1e3:.4g} mm)")
+        else:
+            slack = gap - gmin
+            details.append(f"{a} - {b} gap {gap * 1e3:.4g} mm (min {gmin * 1e3:.4g})")
         worst = slack if worst is None else min(worst, slack)
     if unchecked:
         details.append("not checked (needs 3-D): " + ", ".join(unchecked))
