@@ -2,7 +2,8 @@
 gmsh_getdp/assembly pipeline, with geometry from the parts' `solid_3d` recipes instead of CAD imports.
 
 Linear iron is superposable (one solve per circuit at 1 A); nonlinear iron uses each material's B-H curve
-(nu(|b|^2) interpolation, current ramp, Picard iterations) and one solve with the actual currents.
+(nu(|b|^2) interpolation of a monotone resampling of the table, see nu_table; current ramp; Newton or Picard)
+and one solve with the actual currents.
 Field access interpolates GetDP's element-nodal B inside each tetrahedron (as getdp_axisym does in 2-D).
 """
 from __future__ import annotations
@@ -26,6 +27,37 @@ BND = 9000
 MU0 = 4e-7 * math.pi
 
 
+def nu_table(H, B, n: int = 160, check: str = "akima") -> tuple[np.ndarray, np.ndarray]:
+    """Reluctivity table (B^2, nu) for GetDP's nu(|b|^2) interpolation, from a B-H table.
+
+    H(B) is interpolated with a monotone cubic (PCHIP) on the table itself and resampled at n points (uniform in
+    B up to the last table point), so the table's own shape is kept (including the low-field S-shape of real
+    steel) while the interpolant GetDP builds on top stays monotone. Interpolating nu = H/B at the table points
+    only, as before, made H(B) decrease between table points for coarse tables (het a36: 0.65-0.80 T), which
+    is unphysical and stalls Newton. Raises BackendError if the table is not strictly increasing or if the
+    interpolated H(B) (Akima or linear in B^2, as GetDP will use it) is not increasing."""
+    from scipy.interpolate import Akima1DInterpolator, PchipInterpolator
+    H, B = np.asarray(H, float), np.asarray(B, float)
+    if B[0] > 0:
+        H, B = np.concatenate([[0.0], H]), np.concatenate([[0.0], B])
+    if np.any(np.diff(B) <= 0) or np.any(np.diff(H) <= 0):
+        raise BackendError("B-H table must be strictly increasing in both H and B")
+    h = PchipInterpolator(B, H)
+    b = np.linspace(0.0, B[-1], n)
+    nu = np.empty(n)
+    nu[1:] = h(b[1:]) / b[1:]
+    nu[0] = float(h.derivative()(0.0))                    # lim H/B as B -> 0
+    b2 = b ** 2
+    # the curve as GetDP will interpolate it: H = nu(B^2) B must increase with B
+    x = np.linspace(1e-4, B[-1], 20000)
+    f = Akima1DInterpolator(b2, nu) if check == "akima" else (lambda q: np.interp(q, b2, nu))
+    hh = f(x ** 2) * x
+    if not np.all(np.diff(hh) > 0):
+        bad = x[1:][np.diff(hh) <= 0]
+        raise BackendError(f"interpolated B-H curve is not monotone between {bad.min():.3f} and {bad.max():.3f} T")
+    return b2, nu
+
+
 def _solid_canon(s: Solid) -> dict:
     d = s.canonical()
     d["surfaces"] = s.surfaces
@@ -45,7 +77,7 @@ def _mat_mu(mat) -> float:
 
 class GetDP3D(Backend):
     name = "getdp_3d"
-    version = "1.0.0"
+    version = "1.1.0"
     capabilities = Capabilities(dims=3, symmetry="none", superposable=True)
     measure_needs_raw = True
     FIDELITY = {
@@ -201,10 +233,7 @@ class GetDP3D(Backend):
             if f"R{i}" in lin:
                 L.append(f"  nu[R{i}] = 1 / (mu0 * {_mat_mu(bd.material)!r});")
         for mid, curve in inputs["bh"].items():
-            H, B = np.array(curve["H"]), np.array(curve["B"])
-            keep = B > 0
-            nu = np.concatenate([[H[keep][0] / B[keep][0]], H[keep] / B[keep]])
-            b2 = np.concatenate([[0.0], B[keep] ** 2])
+            b2, nu = nu_table(curve["H"], curve["B"], check="akima" if newton else "linear")
             pairs = ", ".join(f"{float(x)!r}, {float(y)!r}" for x, y in zip(b2, nu))
             name = "nu_" + _ident(mid)
             L.append(f"  {name}_list() = {{{pairs}}};")

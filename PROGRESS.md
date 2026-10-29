@@ -17,8 +17,9 @@ Fixed on the way: (1) without `--site`, `local.yaml` was ignored (tools never re
 default. (2) Dockerfile: the GetDP archive `getdp-3.5.0-Linux64c.tgz` unpacks to `getdp-3.5.0-Linux64/`
 (no `c`); O3's download-name doubt is resolved, the image itself still has not been built.
 
-**O1 rerun on Linux (2026-10-29, 66 min):** with the finer ramp, the final 100 % step converges, but the 85 %
-step does not, so the case still fails under the unconverged-means-failed rule. Details under O1.
+**O1 diagnosed and fixed (2026-10-29):** the B-H interpolation made H(B) non-monotone between 0.65 and 0.80 T
+(not saturation). With a monotone table the nonlinear 3-D check converges in 3-4 Newton iterations per ramp step,
+8 min instead of 66. Details under O1.
 
 **Answered by the user (2026-10-29):** materials have fixed properties (O8 closed); WarpX is Linux-first;
 FEMM not needed (xfemm possible later as a cross-check); WSL copies are the main copies, pushed to GitHub.
@@ -40,7 +41,7 @@ FEMM not needed (xfemm possible later as a cross-check); WSL copies are the main
 | 3 GetDP 2-D + HET library + parity | done | `../HET/sim`; Design A and B within the legacy model's mesh noise (`../HET/sim/PARITY.md`) |
 | 4 Studies, figures, reports | partly | figures + reports + analysis API done; 4 legacy studies ported and run (gap sweep + report, Design A compass search, permeability, Design B coil layering) |
 | 5 Remote execution | done (untested on a real cluster) | Slurm executor, multi-worker run-task, sync (ssh+tar), container; tested with stand-in Slurm commands |
-| 6 3-D | done, one open issue | `getdp_3d` (geometry from part recipes, linear and nonlinear iron, Newton); 2-D vs 3-D cross-check agrees; nonlinear convergence on the test design: see open issue O1 |
+| 6 3-D | done | `getdp_3d` (geometry from part recipes, linear and nonlinear iron, Newton); 2-D vs 3-D cross-check agrees; nonlinear convergence fixed (O1) |
 | 7 WarpX | adapter done, untested with real WarpX | multi-stage pipelines, openPMD exports, `warpx` backend with deck templates; tested with a stand-in WarpX |
 
 Tests: 36 fast tests (`-m "not slow"`), 1 slow subprocess test, 2 HET parity tests (`../HET/sim/tests`, need GetDP).
@@ -74,25 +75,31 @@ Tests: 36 fast tests (`-m "not slow"`), 1 slow subprocess test, 2 HET parity tes
 
 ## Open issues
 
-- **O1 Nonlinear 3-D convergence.** Coarse test design (240k tets) at 2.0 A / 1.6 A, AISI 1008 proxy B-H:
-  Picard stalled (relative residual ~1 at 50 %, then diverged). Newton + Akima B-H (legacy fallback): the 50 %
-  step converged in 4 iterations; the 50 -> 100 % jump stalled (61 iterations, relative increment 7.2e-4 >
-  1e-4), as the legacy notes describe for large ramp steps. Fixed a bug found on the way: unconverged
-  nonlinear solves were stored as "ok"; they now fail the case with the reason. Rerun with a finer ramp
-  (0.5, 0.7, 0.85, 0.95, 1.0), run on Linux 2026-10-29 (`scripts/nonlinear_3d_check.py`, 3964 s):
-
-  | ramp step | 50 % | 70 % | 85 % | 95 % | 100 % |
-  |---|---|---|---|---|---|
-  | Newton iterations | 5 | 32 | **61, not converged** (residual 0.0139) | 52 | 12 |
-  | final residual | 4.2e-6 | 6.1e-5 | 0.0139 | 2.7e-5 | 5.9e-5 |
-
-  The 100 % solution converged, starting from the unconverged 85 % state. So the failing step is a
-  continuation step and does not change the answer. Options, to discuss:
-  - (a) require convergence only on the final ramp step, and record the intermediate residuals in the log;
-  - (b) relax the stalled step (nl.relax 0.7) or give it more iterations;
-  - (c) use an adaptive ramp that halves a step that does not converge.
-
-  (a) is the smallest change. (c) is the most robust. Either way, a slow test can follow.
+- **O1 Nonlinear 3-D convergence: diagnosed and fixed 2026-10-29.**
+  - **Symptom:** coarse test design (`bn_screened`, 240k tets) at 2.0 A / 1.6 A, a36 (AISI 1008 proxy) B-H.
+    Newton took 5 / 32 / **61, not converged** / 52 / 12 iterations over the ramp 50 / 70 / 85 / 95 / 100 %
+    (3964 s). Picard stalled earlier the same way.
+  - **Cause: the reluctivity table, not saturation.** The backend set nu = H/B at the B-H table points only, and
+    GetDP interpolated it against B^2. Across the table's low-field S-shape (nu falls 663 -> 368 between 0.24 and
+    0.87 T, two points apart), the interpolant made **H(B) decrease between 0.65 and 0.80 T** (Akima; dH/dB down
+    to -93 A/m/T). Picard's piecewise-linear version decreases between 0.69 and 0.87 T. That is an unphysical
+    material law (negative differential permeability, non-convex energy), and Newton's tangent is indefinite
+    there.
+  - **Evidence:** a linear solve on the same mesh (`scratch/o1_bdist.py`) puts the inner core's volume in that
+    band at 0.3 / 26 / 48 / 43 / 36 % over the ramp steps, which tracks the iteration counts. The rest of the
+    iron stays low (78-90 % of all iron below 0.24 T), so the circuit is indeed near-linear, except the inner
+    core (median 0.42 -> 0.85 T).
+  - **Fix** (getdp_3d 1.1.0, `nu_table`):
+    - H(B) is interpolated with a monotone cubic (PCHIP) on the table and resampled at 160 points;
+    - the resulting nu(B^2) list is checked to keep H(B) increasing under GetDP's interpolation (BackendError if
+      not);
+    - it passes through every table point (largest error 6e-4).
+  - **Result:** 4 / 4 / 4 / 3 / 3 Newton iterations, 478 s instead of 3964 s, case `ok`. The channel field changes
+    by at most 0.4 % of peak against the old converged 100 % state. Inner-core median B moves -2 % and the outer
+    posts +6 %.
+  - Tests: `tests/test_bh_table.py`. The earlier options (a)-(c) (accept unconverged intermediate steps, relax,
+    adaptive ramp) are no longer needed.
+  - **Next:** a slow nonlinear 3-D test (8 min) can now be added.
 - **O2** `bplsim schema export` (JSON Schemas for editor autocompletion) is not implemented: validation is
   hand-written rather than pydantic models, so schemas would have to be written separately.
 - **O3** CI and the Docker image are written but have never run (no push, no Docker on this machine); the GetDP
@@ -131,7 +138,8 @@ Tests: 36 fast tests (`-m "not slow"`), 1 slow subprocess test, 2 HET parity tes
 
 ## Next steps
 
-1. O1: choose (a), (b) or (c) above, then add a slow nonlinear 3-D test. WSL2 workspace: done 2026-10-29.
+1. Add the slow nonlinear 3-D test (O1 is fixed; 8 min on the coarse test design). WSL2 workspace: done
+   2026-10-29.
    (The HET PIC/electrostatics sample work of 2026-10-29 is standalone in ../HET/pic, see HET/pic/REPORT.md.)
 2. Run `../HET/sim/studies/design_a_search.yaml` (compass on the real backend) and port the remaining legacy
    studies (O6).
