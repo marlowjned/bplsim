@@ -26,7 +26,9 @@ def test_slurm_executor_runs_study(tmp_path, monkeypatch):
                                     "squeue": f"{py} {(FAKE / 'squeue.py').as_posix()}",
                                     "sacct": f"{py} {(FAKE / 'sacct.py').as_posix()}"}})
     d, s = run_study(HET, "cap_screen_loops.yaml", tmp_path / "data", executor=SlurmExecutor(site))
-    assert s["done"] == 12
+    logs = "\n".join(f"--- {p.name}\n{p.read_text()[-2000:]}"
+                     for p in sorted((tmp_path / "data").glob("studies/*/rounds/*/*/slurm-*.out")))
+    assert s.get("done") == 12, f"summary {s}; array task output:\n{logs}"
     sub = next((tmp_path / "data").glob("studies/*/rounds/0/*attempt0/submit.sh")).read_text()
     assert "#SBATCH --array=0-" in sub and "--workers" in sub and "#SBATCH --partition=debug" in sub
 
