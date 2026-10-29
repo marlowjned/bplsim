@@ -58,6 +58,33 @@ def nu_table(H, B, n: int = 160, check: str = "akima") -> tuple[np.ndarray, np.n
     return b2, nu
 
 
+def bh_issues(curves: dict, newton: bool = True) -> list[str]:
+    """Problems with B-H curves as this backend will use them (nu_table), one message per material.
+    The interpolation decides what is physical, so the check lives here rather than on the material."""
+    issues = []
+    for mid, c in curves.items():
+        try:
+            nu_table(c["H"], c["B"], check="akima" if newton else "linear")
+        except BackendError as e:
+            issues.append(f"material {mid}: {e}")
+    return issues
+
+
+def _bh_curves(design) -> dict:
+    """{material id: {"H": [...], "B": [...]}} for every material with a B-H curve in the design's solids."""
+    out = {}
+    for slot in design.slots:
+        s = design.part(slot).solid()
+        if s is None:
+            continue
+        for node in _walk(s):
+            m = node.material
+            if hasattr(m, "has") and m.has("bh_curve"):
+                t = m.bh_curve
+                out[m.id] = {"H": list(map(float, t["H"])), "B": list(map(float, t["B"]))}
+    return out
+
+
 def _solid_canon(s: Solid) -> dict:
     d = s.canonical()
     d["surfaces"] = s.surfaces
@@ -100,7 +127,13 @@ class GetDP3D(Backend):
 
     def check(self, design, stage: StageConfig) -> list[str]:
         missing = [s for s in design.slots if design.part(s).type_cls.solid_3d is None]
-        return [f"part(s) without solid_3d: {', '.join(missing)}"] if missing else []
+        if missing:
+            return [f"part(s) without solid_3d: {', '.join(missing)}"]
+        f = stage.fidelity
+        if not f.get("nonlinear"):
+            return []
+        # B-H curves as this backend will interpolate them; runs per design before any mesh is built
+        return bh_issues(_bh_curves(design), newton=f.get("nl.method", "newton") == "newton")
 
     def solve_inputs(self, design, stage: StageConfig) -> dict:
         bodies, bh, circuits = [], {}, set()
@@ -114,10 +147,7 @@ class GetDP3D(Backend):
             for node in _walk(s):
                 if node.excitation:
                     circuits.add(node.excitation["circuit"])
-                m = node.material
-                if nonlinear and hasattr(m, "has") and m.has("bh_curve"):
-                    t = m.bh_curve
-                    bh[m.id] = {"H": list(map(float, t["H"])), "B": list(map(float, t["B"]))}
+        bh = _bh_curves(design) if nonlinear else {}
         fid = {k: v for k, v in stage.fidelity.items()}
         return {"bodies": bodies, "circuits": sorted(circuits), "fidelity": fid, "bh": bh}
 

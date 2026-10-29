@@ -8,8 +8,10 @@ import numpy as np
 import pytest
 from scipy.interpolate import Akima1DInterpolator
 
-from bplsim.backends.getdp_3d import nu_table
+from bplsim.backends.getdp_3d import bh_issues, nu_table
 from bplsim.errors import BackendError
+
+from conftest import HET
 
 TABLE = Path(__file__).parent / "fixtures/het_example/library/materials/a36_bh.csv"
 
@@ -48,3 +50,35 @@ def test_point_table_was_not_monotone():
 def test_nu_table_rejects_a_decreasing_table():
     with pytest.raises(BackendError):
         nu_table([0.0, 100.0, 90.0], [0.0, 0.5, 1.0])
+
+
+def test_bh_issues_names_the_bad_material():
+    H, B = _table()
+    issues = bh_issues({"het:materials/a36": {"H": H, "B": B},
+                        "het:materials/bad": {"H": [0.0, 100.0, 90.0], "B": [0.0, 0.5, 1.0]}})
+    assert len(issues) == 1 and issues[0].startswith("material het:materials/bad")
+
+
+def test_check_validates_bh_curves_before_meshing(monkeypatch):
+    """getdp_3d.check() runs the B-H validation for nonlinear stages (the study driver marks the design
+    invalid before any mesh is built); linear stages skip it."""
+    import bplsim.backends.getdp_3d as g3
+    from bplsim.pipeline import load_pipeline
+    from bplsim.project import Project
+    from bplsim.resolve import Resolver
+    pr = Project.load(HET)
+    pl = load_pipeline(pr, "het:pipelines/magnetostatics_3d_nl_coarse")
+    d = Resolver(pr, "het:assemblies/bn_screened", fidelity=pl.fidelity_spec()).resolve()
+    st = pl.stages["mag"]
+    cfg = st.config(d)
+    assert st.backend.check(d, cfg) == []
+
+    def bad(H, B, n=160, check="akima"):
+        raise BackendError("not monotone (test)")
+
+    monkeypatch.setattr(g3, "nu_table", bad)
+    issues = st.backend.check(d, cfg)
+    assert issues and all("not monotone (test)" in i for i in issues)
+    lin = load_pipeline(pr, "het:pipelines/magnetostatics_3d_coarse")
+    d_lin = Resolver(pr, "het:assemblies/bn_screened", fidelity=lin.fidelity_spec()).resolve()
+    assert lin.stages["mag"].backend.check(d_lin, lin.stages["mag"].config(d_lin)) == []

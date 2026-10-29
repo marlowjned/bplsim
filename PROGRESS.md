@@ -72,6 +72,7 @@ Tests: 36 fast tests (`-m "not slow"`), 1 slow subprocess test, 2 HET parity tes
 | K21 | Nonlinear normalization: the **case job iterates** (secant on the current scale, re-solving on the same mesh); the case is defined by geometry + current ratio + target. | No superposition with nonlinear iron. | Driver-level loop over cases. |
 | K22 | 3-D post coils carry current **clockwise seen from +z** (sign -1 about each post's own axis), matching the 2-D winding sheets (inner sheet +theta) so the posts carry the return flux. | Consistent 2-D/3-D fields (cross-check agrees). | none |
 | K23 | WarpX decks are **Jinja templates** from the project (`fidelity.deck`), rendered with fidelity, op, params, parts and upstream file paths; the bundled `default_rz.j2` is only a starting point. | WarpX parameter names change between versions; the physics setup belongs to the project. | Generate decks in Python. |
+| K24 | B-H curves are validated **in the backend**, as the backend will interpolate them (`getdp_3d.check()`, before meshing), not on the material. | What is physical depends on the interpolation: in O1 a valid table became non-monotone only through the nu(B^2) spline. Keeps library entries solver-agnostic. | A material-level check at load time (it can only test the raw table, so it would not have caught O1). |
 
 ## Open issues
 
@@ -99,7 +100,14 @@ Tests: 36 fast tests (`-m "not slow"`), 1 slow subprocess test, 2 HET parity tes
     posts +6 %.
   - Tests: `tests/test_bh_table.py`. The earlier options (a)-(c) (accept unconverged intermediate steps, relax,
     adaptive ramp) are no longer needed.
-  - **Next:** a slow nonlinear 3-D test (8 min) can now be added.
+  - **Where the B-H check lives** (K24, agreed with the user): in the backend, not on the material.
+    - What is physical depends on how the solver interpolates the table. The raw a36 table was valid, so a
+      material-level check would not have caught O1, and it would tie library entries to one solver.
+    - `getdp_3d.check()` runs `bh_issues` for nonlinear stages. The study driver calls it per design before any
+      mesh is built, and a failing curve marks the design invalid with the reason.
+    - `nu_table`'s BackendError stays as the backstop in prepare. Materials are unchanged.
+  - Slow regression test `tests/test_3d_nonlinear.py` (about 8 min): converged, at most 6 Newton iterations per
+    step, and the channel field within 1 % of the reference (405.2 / 364.8 G at z = -5 / 0 mm, mid-radius).
 - **O2** `bplsim schema export` (JSON Schemas for editor autocompletion) is not implemented: validation is
   hand-written rather than pydantic models, so schemas would have to be written separately.
 - **O3** CI and the Docker image are written but have never run (no push, no Docker on this machine); the GetDP
@@ -138,8 +146,7 @@ Tests: 36 fast tests (`-m "not slow"`), 1 slow subprocess test, 2 HET parity tes
 
 ## Next steps
 
-1. Add the slow nonlinear 3-D test (O1 is fixed; 8 min on the coarse test design). WSL2 workspace: done
-   2026-10-29.
+1. O1 closed (fix, backend check, slow test). WSL2 workspace: done 2026-10-29.
    (The HET PIC/electrostatics sample work of 2026-10-29 is standalone in ../HET/pic, see HET/pic/REPORT.md.)
 2. Run `../HET/sim/studies/design_a_search.yaml` (compass on the real backend) and port the remaining legacy
    studies (O6).
