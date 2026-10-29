@@ -22,9 +22,9 @@ from .yamlio import YamlDoc, load_yaml
 FOLDERS = {
     "materials": "material", "part_types": "part_type", "parts": "part", "assemblies": "assembly",
     "probes": "probe", "metrics": "metric", "references": "reference", "measurements": "measurement",
-    "pipelines": "pipeline",
+    "pipelines": "pipeline", "figures": "figure",
 }
-PY_FOLDERS = {"part_types", "probes", "metrics", "references"}
+PY_FOLDERS = {"part_types", "probes", "metrics", "references", "figures"}
 YAML_SUFFIXES = (".yaml", ".yml")
 STD_ROOT = Path(__file__).parent / "std"
 

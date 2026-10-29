@@ -171,3 +171,25 @@ def test_crash_is_retried_once_by_local_executor(tmp_path):
     proj = _flaky_project(tmp_path, "crash")
     d, s = run_study(proj, "flaky.yaml", tmp_path / "data", executor=LocalExecutor(workers=2))
     assert s.get("done") == 2                    # the crash marker makes the retry succeed
+
+
+def test_figures_and_report(data_root, tmp_path):
+    """Figures and reports regenerate from stored results only (plan §14)."""
+    from bplsim.analysis import Results
+    from bplsim.project import Project
+    from bplsim.report import build
+    run_study(HET, "cap_screen_loops.yaml", data_root)
+    pr = Project.load(HET)
+    res = Results(data_root, pr.units)
+    df = res.study_table("cap_screen_loops")
+    run = res.run(df[df.status == "done"].run_id.iloc[0])
+    prof = run.probe("profile")
+    assert np.max(np.abs(prof["B_r"])) == pytest.approx(0.0165, rel=1e-6)   # combined at normalized currents
+    tpl = tmp_path / "r.md.j2"
+    tpl.write_text('Best misfit {{ value("cap_screen_loops", "misfit.rms_pct", fmt=".3f") }} %\n'
+                   '{{ table("cap_screen_loops", ["is_gap", "misfit.rms_pct"], sort="misfit.rms_pct", n=3) }}\n'
+                   '{{ figure("std:figures/scatter", study="cap_screen_loops", x="is_gap", y="misfit.rms_pct") }}\n'
+                   '{{ figure("std:figures/line_probe", name="prof", study="cap_screen_loops", probe="profile") }}\n')
+    out = build(pr, res, tpl)
+    text = out.read_text()
+    assert "Best misfit" in text and (tmp_path / "r_figures" / "prof.png").exists()

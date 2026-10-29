@@ -207,6 +207,45 @@ def query(where: str = typer.Argument("", help="Expression over parameter paths,
 
 
 @app.command()
+def plot(figure_id: str, out: Path = typer.Option(..., "--out", "-o"),
+         param: list[str] = typer.Option([], "--param", help="key=value (YAML value), repeatable"),
+         project: Optional[Path] = typer.Option(None, "--project", "-p"),
+         data: Optional[Path] = typer.Option(None, "--data"), site: Optional[str] = typer.Option(None, "--site")):
+    """Render a registered figure from stored results."""
+    from ruamel.yaml import YAML
+    from .analysis import Results
+    from .figures import render
+    from .project import Project
+    from .sites import load_site
+    pdir = find_project(project)
+    pr = Project.load(pdir)
+    params = {}
+    for kv in param:
+        k, _, v = kv.partition("=")
+        params[k] = YAML(typ="safe").load(v)
+    res = Results(data_root_for(pdir, data, load_site(site)), pr.units)
+    typer.echo(render(pr, res, figure_id, params, out))
+
+
+report_app = typer.Typer(no_args_is_help=True, help="Reports regenerated from stored results.")
+app.add_typer(report_app, name="report")
+
+
+@report_app.command("build")
+def report_build(template: Path, project: Optional[Path] = typer.Option(None, "--project", "-p"),
+                 data: Optional[Path] = typer.Option(None, "--data"), site: Optional[str] = typer.Option(None, "--site")):
+    """Render a report template (<name>.md.j2) into <name>.md with its figures."""
+    from .analysis import Results
+    from .project import Project
+    from .report import build
+    from .sites import load_site
+    pdir = find_project(project or template.parent)
+    pr = Project.load(pdir)
+    res = Results(data_root_for(pdir, data, load_site(site)), pr.units)
+    typer.echo(f"wrote {build(pr, res, template)}")
+
+
+@app.command()
 def init(directory: Path, name: Optional[str] = typer.Option(None)):
     """Create a new project skeleton."""
     from .bplcheck import init_project
