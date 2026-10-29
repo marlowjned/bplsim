@@ -1,42 +1,30 @@
 # bplsim build progress
 
-## Resume here (2026-10-29, before the restart for WSL)
+## Resume here (2026-10-29, Linux workspace)
 
-State: phases 0-7 built and committed (local commits only, nothing pushed) in `Projects/bplsim` and
-`Projects/HET` (`sim/` = the het project). Fast tests: 37 pass. HET parity tests pass. Next priority (the
-user's): **WSL2 + a Linux workspace**.
+**Work happens in WSL now** (Ubuntu 24.04, user `marlow`): `~/Projects/bplsim` and `~/Projects/HET`, pushed to
+GitHub (`marlowjned/bplsim`, `marlowjned/het`). The Windows copies under `C:\Users\marlo\Projects` are an
+archive; do not edit them.
 
-**Plan for WSL (proposed, waiting for the user's go-ahead):**
-1. User: admin PowerShell `wsl --install -d Ubuntu-24.04`, reboot, create the Linux user.
-2. Claude: inside WSL, apt build tools + gmsh's X/GL libraries; `uv` + Python 3.12; clone `bplsim` and `HET`
-   into `~/Projects` (the ext4 filesystem, not `/mnt/c`); GetDP 3.5.0 Linux binary (verifies the Dockerfile's
-   download name, O3); site profile `~/.config/bplsim/sites/local.yaml` with `tools.getdp`.
-3. Claude: run the bplsim tests, the HET parity tests and one 2-D study inside WSL.
-4. VS Code with the WSL extension.
+Linux setup (reproducible with `scripts/wsl_setup.sh`; system packages need `sudo apt install -y build-essential
+libglu1-mesa libxrender1 libxcursor1 libxft2 libxinerama1 libgomp1 libxi6 libxrandr2 wget`):
+- uv + `.venv` (Python 3.12.3); GetDP 3.5.0 Linux at `~/tools/getdp/bin/getdp`;
+- site profile `~/.config/bplsim/sites/local.yaml` (data root `~/bplsim_data`, tools.getdp).
 
-**Open questions for the user:**
-- Should the WSL clones become the main working copies (Windows copies archived), or keep both and sync
-  through GitHub? Either way needs a push to GitHub, which has not happened yet. Recommended: WSL main,
-  pushed to GitHub.
-- Move last night's results (about 140 solves, about 1 GB in `bplsim/scratch/hetdata`) into WSL, or
-  regenerate them there (minutes; doubles as a test)?
+Verified on Linux (2026-10-29): bplsim 40 tests pass (incl. slow: crash retry, 2-D vs 3-D); HET parity 2/2;
+all six HET studies regenerated in 104 s (Design A search reproduces misfit 0.7158 %, 85 rows).
+Fixed on the way: (1) without `--site`, `local.yaml` was ignored (tools never reached the backends); now the
+default. (2) Dockerfile: the GetDP archive `getdp-3.5.0-Linux64c.tgz` unpacks to `getdp-3.5.0-Linux64/`
+(no `c`); O3's download-name doubt is resolved, the image itself still has not been built.
 
-**Answered by the user (2026-10-29):**
-- Materials have fixed properties; worst/best cases are separate material entries (O8 closed).
-- WarpX: Linux-first (a reason for WSL). FEMM: Windows-only (Wine, or xfemm natively on Linux); not needed,
-  since `getdp_axisym` covers 2-D axisymmetric; possible later as a cross-check backend.
+**Unfinished:** O1 (nonlinear 3-D convergence): rerun on Linux started 2026-10-29, see the log below.
 
-**Unfinished:** O1 (nonlinear 3-D convergence): rerun `scripts/nonlinear_3d_check.py` (about 30 min) after
-the WSL setup; if it converges, add it as a slow test.
-
-
-Living log of the overnight build (started 2026-10-29). Spec: `../HET/docs/TRADE_FRAMEWORK_PLAN.md` (v0.2)
-and `../HET/docs/TRADE_FRAMEWORK_EXAMPLE.md` (v0.3). If a session ends, resume from "Next steps".
+**Answered by the user (2026-10-29):** materials have fixed properties (O8 closed); WarpX is Linux-first;
+FEMM not needed (xfemm possible later as a cross-check); WSL copies are the main copies, pushed to GitHub.
 
 ## Environment
 
-- Python 3.12 virtual environment at `.venv` (`uv venv --python 3.12`, then `uv pip install -e ".[dev]"`).
-  Run: `.venv/Scripts/python.exe -m pytest -m "not slow"`, `.venv/Scripts/bplsim.exe ...`.
+- WSL: `source .venv/bin/activate`, then `python -m pytest -m "not slow"`, `bplsim ...` (Windows archive: `.venv/Scripts/...`).
 - GetDP 3.5.0 (Windows): `../HET/tools/getdp-3.5.0-Windows64/getdp.exe`, found via site `tools.getdp`,
   `BPLSIM_TOOL_GETDP`, or PATH. gmsh 4.15.2 (pip wheel).
 - Commits are local only (not pushed), in both `bplsim` and `HET`.

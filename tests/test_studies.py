@@ -220,3 +220,16 @@ def test_cli_init_check_show_fork_gc(tmp_path):
     run_study(HET, "cap_screen_loops.yaml", data)
     res = r.invoke(app, ["gc", "--raw-older-than-days", "0", "--dry-run", "-p", str(HET), "--data", str(data)])
     assert res.exit_code == 0 and '"dry_run": true' in res.output
+
+
+def test_local_site_profile_is_the_default(tmp_path, monkeypatch):
+    """Without --site, ~/.config/bplsim/sites/local.yaml is used (its tools reach the backends)."""
+    from bplsim.sites import load_site
+    monkeypatch.setenv("BPLSIM_SITES", str(tmp_path))
+    monkeypatch.delenv("BPLSIM_TOOL_GETDP", raising=False)
+    assert load_site(None).tools == {}
+    (tmp_path / "local.yaml").write_text("name: local\ndata_root: /tmp/x\ntools: {getdp: /opt/getdp}\n")
+    s = load_site(None)
+    assert s.data_root == "/tmp/x" and s.tools == {"getdp": "/opt/getdp"}
+    import os
+    assert os.environ["BPLSIM_TOOL_GETDP"].replace("\\", "/").endswith("opt/getdp")

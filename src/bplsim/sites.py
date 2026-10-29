@@ -53,7 +53,8 @@ class Site:
 
 
 def load_site(name: str | None) -> Site:
-    if not name or name == "local" and not (sites_dir() / "local.yaml").exists():
+    name = name or "local"                     # no --site: the 'local' profile if it exists, else defaults
+    if name == "local" and not (sites_dir() / "local.yaml").exists():
         s = Site()
     else:
         path = Path(name) if name.endswith((".yaml", ".yml")) else sites_dir() / f"{name}.yaml"

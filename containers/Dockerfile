@@ -13,8 +13,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 ARG GETDP_VERSION=3.5.0
 RUN wget -q https://getdp.info/bin/Linux/getdp-${GETDP_VERSION}-Linux64c.tgz \
     && tar xzf getdp-${GETDP_VERSION}-Linux64c.tgz \
-    && cp getdp-${GETDP_VERSION}-Linux64c/bin/getdp /usr/local/bin/getdp \
-    && rm -rf getdp-${GETDP_VERSION}-Linux64c*
+    && cp getdp-${GETDP_VERSION}-Linux64/bin/getdp /usr/local/bin/getdp \
+    && rm -rf getdp-${GETDP_VERSION}-Linux64*
 
 COPY pyproject.toml README.md /opt/bplsim/
 COPY src /opt/bplsim/src
