@@ -17,7 +17,8 @@ Fixed on the way: (1) without `--site`, `local.yaml` was ignored (tools never re
 default. (2) Dockerfile: the GetDP archive `getdp-3.5.0-Linux64c.tgz` unpacks to `getdp-3.5.0-Linux64/`
 (no `c`); O3's download-name doubt is resolved, the image itself still has not been built.
 
-**Unfinished:** O1 (nonlinear 3-D convergence): rerun on Linux started 2026-10-29, see the log below.
+**O1 rerun on Linux (2026-10-29, 66 min):** with the finer ramp, the final 100 % step converges, but the 85 %
+step does not, so the case still fails under the unconverged-means-failed rule. Details under O1.
 
 **Answered by the user (2026-10-29):** materials have fixed properties (O8 closed); WarpX is Linux-first;
 FEMM not needed (xfemm possible later as a cross-check); WSL copies are the main copies, pushed to GitHub.
@@ -78,8 +79,20 @@ Tests: 36 fast tests (`-m "not slow"`), 1 slow subprocess test, 2 HET parity tes
   step converged in 4 iterations; the 50 -> 100 % jump stalled (61 iterations, relative increment 7.2e-4 >
   1e-4), as the legacy notes describe for large ramp steps. Fixed a bug found on the way: unconverged
   nonlinear solves were stored as "ok"; they now fail the case with the reason. Rerun with a finer ramp
-  (0.5, 0.7, 0.85, 0.95, 1.0) was interrupted by the WSL install: rerun with
-  `.venv/Scripts/python.exe scratch/run_nl.py` (about 30 min) and add it as a slow test if it converges.
+  (0.5, 0.7, 0.85, 0.95, 1.0), run on Linux 2026-10-29 (`scripts/nonlinear_3d_check.py`, 3964 s):
+
+  | ramp step | 50 % | 70 % | 85 % | 95 % | 100 % |
+  |---|---|---|---|---|---|
+  | Newton iterations | 5 | 32 | **61, not converged** (residual 0.0139) | 52 | 12 |
+  | final residual | 4.2e-6 | 6.1e-5 | 0.0139 | 2.7e-5 | 5.9e-5 |
+
+  The 100 % solution converged, starting from the unconverged 85 % state. So the failing step is a
+  continuation step and does not change the answer. Options, to discuss:
+  - (a) require convergence only on the final ramp step, and record the intermediate residuals in the log;
+  - (b) relax the stalled step (nl.relax 0.7) or give it more iterations;
+  - (c) use an adaptive ramp that halves a step that does not converge.
+
+  (a) is the smallest change. (c) is the most robust. Either way, a slow test can follow.
 - **O2** `bplsim schema export` (JSON Schemas for editor autocompletion) is not implemented: validation is
   hand-written rather than pydantic models, so schemas would have to be written separately.
 - **O3** CI and the Docker image are written but have never run (no push, no Docker on this machine); the GetDP
@@ -118,8 +131,8 @@ Tests: 36 fast tests (`-m "not slow"`), 1 slow subprocess test, 2 HET parity tes
 
 ## Next steps
 
-1. Finish O1: rerun `scratch/run_nl.py` (finer ramp); if it converges, add a slow nonlinear 3-D test.
-   Next session also: WSL2 + the Linux workspace (the user's next priority, 2026-10-29).
+1. O1: choose (a), (b) or (c) above, then add a slow nonlinear 3-D test. WSL2 workspace: done 2026-10-29.
+   (The HET PIC/electrostatics sample work of 2026-10-29 is standalone in ../HET/pic, see HET/pic/REPORT.md.)
 2. Run `../HET/sim/studies/design_a_search.yaml` (compass on the real backend) and port the remaining legacy
    studies (O6).
 3. Real-cluster and real-WarpX runs (O4); push and run CI (O3).
