@@ -1,5 +1,35 @@
 # bplsim build progress
 
+## Resume here (2026-10-29, before the restart for WSL)
+
+State: phases 0-7 built and committed (local commits only, nothing pushed) in `Projects/bplsim` and
+`Projects/HET` (`sim/` = the het project). Fast tests: 37 pass. HET parity tests pass. Next priority (the
+user's): **WSL2 + a Linux workspace**.
+
+**Plan for WSL (proposed, waiting for the user's go-ahead):**
+1. User: admin PowerShell `wsl --install -d Ubuntu-24.04`, reboot, create the Linux user.
+2. Claude: inside WSL, apt build tools + gmsh's X/GL libraries; `uv` + Python 3.12; clone `bplsim` and `HET`
+   into `~/Projects` (the ext4 filesystem, not `/mnt/c`); GetDP 3.5.0 Linux binary (verifies the Dockerfile's
+   download name, O3); site profile `~/.config/bplsim/sites/local.yaml` with `tools.getdp`.
+3. Claude: run the bplsim tests, the HET parity tests and one 2-D study inside WSL.
+4. VS Code with the WSL extension.
+
+**Open questions for the user:**
+- Should the WSL clones become the main working copies (Windows copies archived), or keep both and sync
+  through GitHub? Either way needs a push to GitHub, which has not happened yet. Recommended: WSL main,
+  pushed to GitHub.
+- Move last night's results (about 140 solves, about 1 GB in `bplsim/scratch/hetdata`) into WSL, or
+  regenerate them there (minutes; doubles as a test)?
+
+**Answered by the user (2026-10-29):**
+- Materials have fixed properties; worst/best cases are separate material entries (O8 closed).
+- WarpX: Linux-first (a reason for WSL). FEMM: Windows-only (Wine, or xfemm natively on Linux); not needed,
+  since `getdp_axisym` covers 2-D axisymmetric; possible later as a cross-check backend.
+
+**Unfinished:** O1 (nonlinear 3-D convergence): rerun `scripts/nonlinear_3d_check.py` (about 30 min) after
+the WSL setup; if it converges, add it as a slow test.
+
+
 Living log of the overnight build (started 2026-10-29). Spec: `../HET/docs/TRADE_FRAMEWORK_PLAN.md` (v0.2)
 and `../HET/docs/TRADE_FRAMEWORK_EXAMPLE.md` (v0.3). If a session ends, resume from "Next steps".
 
