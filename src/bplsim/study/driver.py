@@ -244,10 +244,18 @@ class Driver:
             stage_pdefs = [p for p in pdefs.values() if p.stage == sname] + list(exp_defs.values())
             stage_mdefs = [m for m in mdefs.values() if m.stage == sname]
             bases = [b.canonical() for b in st.backend.bases(design, cfg, inputs)]
+            st_norm = normalize if norm_stage == sname else None
+            nl_norm = None
+            if st_norm and not st.backend.superposed(cfg):
+                # no superposition: the worker iterates on the current scale factor, re-solving each time
+                md = mdefs[st_norm["value"].split(".")[0]]
+                nl_norm = {**st_norm, "metric": md.canonical(),
+                           "probes": [p.canonical() for p in pdefs.values() if p.def_hash in md.input_hashes.values()],
+                           "tol": 1e-3, "max_iter": 8}
+                inputs["normalize"] = {k: v for k, v in st_norm.items()}
             hashed = {k: v for k, v in inputs.items() if not k.startswith("_")}
             case_hash = content_hash({"backend": st.backend.name, "version": major_minor(st.backend.version),
                                       "inputs": hashed, "bases": bases})
-            st_norm = normalize if norm_stage == sname else None
             run_hash = content_hash({"case": case_hash, "design": canon, "normalize": st_norm, "stage": sname,
                                      "metrics": sorted(m.def_hash for m in stage_mdefs),
                                      "exports": sorted(p.def_hash for p in exp_defs.values())})
@@ -255,7 +263,8 @@ class Driver:
                         "inputs": inputs, "bases": bases, "design": canon,
                         "probes": [p.canonical() for p in stage_pdefs],
                         "resources": dict(st.resources), "retention": dict(spec.retention), "pinned": row.pinned,
-                        "needs_raw": getattr(st.backend, "measure_needs_raw", True), "provenance": prov}
+                        "needs_raw": getattr(st.backend, "measure_needs_raw", True), "provenance": prov,
+                        "normalize_nl": nl_norm}
             job_run = {"type": "run", "run_hash": run_hash, "case_hash": case_hash, "stage": sname,
                        "design": canon, "bases": bases, "metrics": [m.canonical() for m in stage_mdefs],
                        "exports": [{"name": n, "hash": d.def_hash} for n, d in exp_defs.items()],

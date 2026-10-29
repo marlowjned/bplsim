@@ -1,0 +1,10 @@
+design: het:assemblies/bn_screened
+pipeline: het:pipelines/loops_2d_nl
+measure: het:measurements/channel_field_2d
+variables:
+  is_gap: {param: params.inner_screen_gap, values: [12, 20]}
+normalize:
+  scale: [op.circuits.inner.current, op.circuits.outer.current]
+  so_that: {value: shape.peak_Br, equals: 165}
+objectives: {s: {minimize: shape.sigma}}
+sampler: {kind: grid}

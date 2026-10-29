@@ -193,3 +193,30 @@ def test_figures_and_report(data_root, tmp_path):
     out = build(pr, res, tpl)
     text = out.read_text()
     assert "Best misfit" in text and (tmp_path / "r_figures" / "prof.png").exists()
+
+
+def test_cli_init_check_show_fork_gc(tmp_path):
+    from typer.testing import CliRunner
+    from bplsim.cli import app
+    r = CliRunner()
+    out = r.invoke(app, ["--version"])
+    assert out.exit_code == 0 and "bplsim" in out.output
+    proj = tmp_path / "newproj"
+    assert r.invoke(app, ["init", str(proj)]).exit_code == 0
+    assert (proj / "project.yaml").exists() and (proj / "library" / "materials").is_dir()
+    shutil.copytree(HET, tmp_path / "het")
+    res = r.invoke(app, ["check", "-p", str(tmp_path / "het")])
+    assert res.exit_code == 0, res.output
+    res = r.invoke(app, ["show", "het:assemblies/bn_screened", "-p", str(tmp_path / "het")])
+    assert res.exit_code == 0 and "screen_clearance" in res.output and "23.275 mm" in res.output
+    # a seeded error is reported with its file and line
+    a = tmp_path / "het" / "library" / "assemblies" / "bn_screened.yaml"
+    a.write_text(a.read_text().replace("thickness: 2.41", "thicknes: 2.41"))
+    res = r.invoke(app, ["check", "-p", str(tmp_path / "het")])
+    assert res.exit_code == 1 and "thicknes" in res.output and "bn_screened.yaml:" in res.output
+    res = r.invoke(app, ["lib", "fork", "std:metrics/ring_ripple", "--into", "het", "-p", str(tmp_path / "het")])
+    assert res.exit_code == 0 and (tmp_path / "het" / "library" / "metrics" / "ring_ripple.py").exists()
+    data = tmp_path / "data"
+    run_study(HET, "cap_screen_loops.yaml", data)
+    res = r.invoke(app, ["gc", "--raw-older-than-days", "0", "--dry-run", "-p", str(HET), "--data", str(data)])
+    assert res.exit_code == 0 and '"dry_run": true' in res.output

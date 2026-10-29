@@ -1,0 +1,6 @@
+description: "Analytic loops run as if nonlinear (no superposition): exercises iterative normalization"
+stages:
+  mag:
+    backend: analytic_loops ^1.0
+    fidelity: {filaments: 2, cell: 2.0, nonlinear: true}
+    equivalence: {outer_posts: smeared_ring, outer_coils: winding_sheets, front_plate: equal_area_disc, back_plate: equal_area_disc}

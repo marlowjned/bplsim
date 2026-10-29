@@ -102,10 +102,19 @@ def run_case(project, root: DataRoot, job: dict) -> str:
                                        "inputs": job["inputs"], "bases": job["bases"], "provenance": job.get("provenance", {}),
                                        "started": _stamp()})
         backend.prepare(job["inputs"], tmp / "raw")
-        for b in job["bases"]:
-            res = backend.execute(job["inputs"], tmp / "raw", Basis(b["name"], b["currents"]), job.get("resources", {}))
-            if res.status != "ok":
-                return _fail(root, tmp, h, "failed" if res.status == "failed" else res.status, res.reason)
+        if job.get("normalize_nl"):
+            ok, info = _normalize_nonlinear(project, backend, job, tmp)
+            if not ok:
+                return _fail(root, tmp, h, "failed", info)
+            case_info = read_json(tmp / "case.json")
+            case_info["normalized_scale"] = info
+            write_json(tmp / "case.json", case_info)
+        else:
+            for b in job["bases"]:
+                res = backend.execute(job["inputs"], tmp / "raw", Basis(b["name"], b["currents"]),
+                                      job.get("resources", {}))
+                if res.status != "ok":
+                    return _fail(root, tmp, h, "failed" if res.status == "failed" else res.status, res.reason)
         _measure(project, backend, job, tmp, job["probes"], tmp / "measurements.h5")
         write_json(tmp / "status.json", {"status": "done", "wall_s": time.time() - t0,
                                          "cpu_s": time.process_time() - c0, "finished": _stamp()})
@@ -118,6 +127,58 @@ def run_case(project, root: DataRoot, job: dict) -> str:
         return _fail(root, tmp, h, "failed", f"{type(e).__name__}: {e}", traceback.format_exc())
     finally:
         lock.release()
+
+
+def _normalize_nonlinear(project, backend, job, tmp: Path):
+    """Secant iteration on the current scale factor k (nonlinear iron: no superposition). Each step re-solves
+    on the same mesh; the final solution is the case's solution and its basis currents are k x nominal."""
+    from ..measure.engine import evaluate_metric
+    spec = job["normalize_nl"]
+    design = ResolvedDesign.from_canonical(project, job["design"])
+    (b0,) = job["bases"]
+    base = dict(b0["currents"])
+    mc = spec["metric"]
+    md = MetricDef(mc["alias"], mc["metric"], mc["version"], mc["inputs"], mc["params"], mc["input_hashes"],
+                   outputs=mc.get("outputs", {}))
+    md.finish()
+    output = spec["value"].split(".", 1)[1]
+    target = spec["target_si"]
+    history = []
+
+    def f(k):
+        basis = Basis("all", {c: k * v for c, v in base.items()})
+        res = backend.execute(job["inputs"], tmp / "raw", basis, job.get("resources", {}))
+        if res.status != "ok":
+            raise RuntimeError(res.reason)
+        data = {}
+        for pc in spec["probes"]:
+            pdef = ProbeDef(pc["alias"], pc["probe"], pc["version"], pc["params"])
+            data[pc["hash"]] = evaluate_probe(project, design, pdef, backend.field_access(job["inputs"], tmp / "raw",
+                                                                                         basis))
+        for c in list((tmp / "raw").glob("elem_*.npy")):
+            c.unlink()                           # cached field exports belong to this k only
+        inputs = {arg: data[hh] for arg, hh in md.input_hashes.items()}
+        v = float(evaluate_metric(project, design, md, inputs)[output])
+        history.append((k, v))
+        return v - target
+
+    try:
+        k0 = 1.0
+        f0 = f(k0)
+        k1 = k0 * target / (f0 + target) if (f0 + target) else 2.0
+        f1 = f(k1)
+        for _ in range(int(spec.get("max_iter", 8))):
+            if abs(f1) <= spec.get("tol", 1e-3) * abs(target):
+                break
+            k0, f0, k1 = k1, f1, k1 - f1 * (k1 - k0) / (f1 - f0) if f1 != f0 else k1 * 1.1
+            f1 = f(k1)
+        else:
+            return False, f"normalization did not converge: {history}"
+    except RuntimeError as e:
+        return False, f"solve failed during normalization: {e}"
+    final = {c: k1 * v for c, v in base.items()}
+    job["bases"] = [{"name": "all", "currents": final}]
+    return True, {"k": k1, "currents": final, "history": history}
 
 
 def _fail(root: DataRoot, tmp: Path, h: str, status: str, reason: str, tb: str = "") -> str:
@@ -157,7 +218,13 @@ def run_run(project, root: DataRoot, job: dict) -> str:
         hashes |= {e["hash"] for e in job.get("exports", [])}
         case_data = read_case_data(case_dir, hashes)
         normalized = {}
-        if job.get("normalize"):
+        cinfo = read_json(case_dir / "case.json")
+        if cinfo.get("normalized_scale"):
+            k = cinfo["normalized_scale"]["k"]
+            normalized = {p: k * float(design.value(p)) for p in job["normalize"]["scale"]}
+            design.normalized = dict(normalized)
+            job = dict(job, bases=[{"name": "all", "currents": {}}])
+        elif job.get("normalize"):
             normalized = normalize(project, design, mdefs, case_data, job["bases"], job["normalize"], job["superposed"])
         metrics = compute_metrics(project, design, mdefs, case_data, job["bases"])
         flat = {}

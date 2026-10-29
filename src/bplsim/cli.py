@@ -208,6 +208,51 @@ def query(where: str = typer.Argument("", help="Expression over parameter paths,
 
 
 @app.command()
+def gc(older_than_days: float = typer.Option(14.0, "--raw-older-than-days"),
+       dry_run: bool = typer.Option(False, "--dry-run"),
+       project: Optional[Path] = typer.Option(None, "--project", "-p"),
+       data: Optional[Path] = typer.Option(None, "--data"), site: Optional[str] = typer.Option(None, "--site")):
+    """Delete raw solver output of unpinned cases older than the limit (probes and metrics are kept)."""
+    from .execute.folders import DataRoot
+    from .sites import load_site
+    from .store.retention import gc as do_gc
+    root = DataRoot(data_root_for(find_project(project), data, load_site(site)))
+    typer.echo(json.dumps(do_gc(root, older_than_days, dry_run)))
+
+
+@app.command()
+def pin(run_or_case: str, off: bool = typer.Option(False, "--off"),
+        project: Optional[Path] = typer.Option(None, "--project", "-p"),
+        data: Optional[Path] = typer.Option(None, "--data"), site: Optional[str] = typer.Option(None, "--site")):
+    """Keep a case's raw output (by run or case hash); --off to release it."""
+    from .execute.folders import DataRoot
+    from .sites import load_site
+    from .store.retention import pin as do_pin
+    root = DataRoot(data_root_for(find_project(project), data, load_site(site)))
+    typer.echo(f"{'unpinned' if off else 'pinned'} {do_pin(root, run_or_case, not off)}")
+
+
+@study_app.command("show-row")
+def study_show_row(study: Path, row: int, project: Optional[Path] = typer.Option(None, "--project", "-p"),
+                   data: Optional[Path] = typer.Option(None, "--data"),
+                   site: Optional[str] = typer.Option(None, "--site")):
+    """Resolved values of one row of a study (from its library snapshot), with origins and checks."""
+    from .resolve import Resolver
+    from .study.spec import row_spec
+    d = _driver(study, project, data, site, None)
+    rows = d.db.query("SELECT * FROM rows WHERE study_id=? AND row_id=?", [d.study_id, row])
+    if not rows:
+        raise typer.BadParameter(f"no row {row} in {d.study_id}")
+    r = d._row_from_db(rows[0])
+    res = Resolver(d.project, d.spec.design, row_spec(d.spec, r.values), d.pipeline.fidelity_spec())
+    des = res.resolve()
+    typer.echo(f"row {row} of {d.study_id}: {json.dumps(r.values)}  status {r.status} {r.reason}")
+    w = max(len(p) for p, _, _ in des.show())
+    for p, v, o in des.show():
+        typer.echo(f"{p:<{w}}  {v:<22} <- {o}")
+
+
+@app.command()
 def plot(figure_id: str, out: Path = typer.Option(..., "--out", "-o"),
          param: list[str] = typer.Option([], "--param", help="key=value (YAML value), repeatable"),
          project: Optional[Path] = typer.Option(None, "--project", "-p"),

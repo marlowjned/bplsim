@@ -29,3 +29,15 @@ def test_mag_to_pic_chain(tmp_path, monkeypatch):
     peak_export = max(float(np.max(np.abs(read_field(tmp_path / "data" / "runs" / r["run_id"][:2] / r["run_id"] /
                                                          "exports" / "fieldmap.h5", "B")[1]["r"]))) for r in runs)
     assert df["pic.energy.peakBr"].astype(float).max() == pytest.approx(peak_export, rel=1e-9)
+
+
+def test_nonlinear_normalization_iterates(tmp_path):
+    """Without superposition the worker iterates on the current scale; the run records the final currents."""
+    from bplsim.execute.folders import read_json
+    d, s = run_study(HET, "loops_nl_norm.yaml", tmp_path / "data")
+    assert s.get("done") == 2, s
+    for case in (tmp_path / "data").glob("cases/*/*/case.json"):
+        info = read_json(case)
+        assert info["normalized_scale"]["k"] > 0 and len(info["normalized_scale"]["history"]) >= 2
+    for m in (tmp_path / "data").glob("runs/*/*/metrics.json"):
+        assert read_json(m)["shape.peak_Br"]["value"] == pytest.approx(0.0165, rel=2e-3)
