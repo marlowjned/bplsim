@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Berkeley Propulsion Laboratory simulation trade framework"
 requires-python = ">=3.11"
 dependencies = [
-  "numpy>=1.26", "scipy>=1.11", "pandas>=2.1", "pyarrow>=14", "pint>=0.23", "pydantic>=2.5",
+  "numpy>=1.26", "scipy>=1.11", "pandas>=2.1", "pyarrow>=14", "pint>=0.23",
   "ruamel.yaml>=0.18", "shapely>=2.0", "h5py>=3.10", "optuna>=3.5", "typer>=0.12", "rich>=13",
   "jinja2>=3.1", "gmsh>=4.11", "matplotlib>=3.8",
 ]
