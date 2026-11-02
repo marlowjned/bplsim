@@ -195,6 +195,23 @@ def test_figures_and_report(data_root, tmp_path):
     assert "Best misfit" in text and (tmp_path / "r_figures" / "prof.png").exists()
 
 
+def test_report_best_is_feasible(data_root, tmp_path):
+    """Report 'best' values skip rows that violate the study's constraints (the unconstrained Rosenbrock optimum
+    at (1, 1) has g = -0.5); feasible=False still reaches them."""
+    from bplsim.model.project import Project
+    from bplsim.results.analysis import Results
+    from bplsim.results.report import build
+    d, s = run_study(FUNCS, "rosen_constrained.yaml", data_root)
+    df = study_table(d.db, d.study_id)
+    pr = Project.load(FUNCS)
+    tpl = tmp_path / "r.md.j2"
+    tpl.write_text('{{ value("rosen_constrained", "f.g", fmt=".6f", by="f.f") }} '
+                   '{{ value("rosen_constrained", "f.f", fmt=".6f", feasible=False) }}\n')
+    g_best, f_any = (float(x) for x in build(pr, Results(data_root, pr.units), tpl).read_text().split())
+    assert g_best >= 0
+    assert f_any == pytest.approx(df["f.f"].min(), abs=1e-6) and df.loc[df["f.f"].idxmin(), "f.g"] < 0
+
+
 def test_cli_init_check_show_fork_gc(tmp_path):
     from typer.testing import CliRunner
     from bplsim.cli import app

@@ -7,6 +7,9 @@ Template functions:
     {{ figure("ns:figures/id", name="file", **params) }}                       renders and links a figure
     {{ table("study", ["col", ...], sort="metric", n=10) }}                     a markdown table
     {{ study("name") }}                                                        the full study id
+
+`value(row="best")` and `table` use only the rows that meet the study's constraints (`feasible=False` for all
+done rows); a study with constraints but no feasible row is an error rather than a quoted infeasible design.
 """
 from __future__ import annotations
 
@@ -33,9 +36,13 @@ def build(project, results, template_path: str | Path) -> Path:
             return df.iloc[0]
         return df[df["row_id"] == int(row)].iloc[0]
 
-    def value(study, metric, unit="", fmt=".4g", row="best", by=None):
+    def _done(study, feasible):
         df = results.study_table(study)
         df = df[df["status"] == "done"]
+        return feasible_rows(results, study, df) if feasible else df
+
+    def value(study, metric, unit="", fmt=".4g", row="best", by=None, feasible=True):
+        df = _done(study, feasible and row == "best")
         r = _row(df, row, by or metric)
         v = float(r[metric])
         if unit and unit not in ("%", "1"):
@@ -52,9 +59,8 @@ def build(project, results, template_path: str | Path) -> Path:
         used.append(name)
         return f"![{name}]({fig_dir.name}/{name}.png)"
 
-    def table(study, cols, sort=None, n=10, fmt=".4g"):
-        df = results.study_table(study)
-        df = df[df["status"] == "done"]
+    def table(study, cols, sort=None, n=10, fmt=".4g", feasible=True):
+        df = _done(study, feasible)
         if sort:
             df = df.sort_values(sort, key=lambda s: s.astype(float))
         df = df.head(n)
@@ -77,6 +83,34 @@ def build(project, results, template_path: str | Path) -> Path:
     text = env.get_template(template_path.name).render(value=value, figure=figure, table=table, study=study)
     out_md.write_text(text, encoding="utf-8")
     return out_md
+
+
+def feasible_rows(results, study: str, df):
+    """The rows of `df` (a study table) that meet the study's constraints. Limits are read as the driver reads
+    them: bare numbers in the project's display unit for the metric's dimension, compared in SI."""
+    from ruamel.yaml import YAML
+
+    from bplsim.units import dim_of
+    rows = results.db.query("SELECT spec_yaml FROM studies WHERE study_id=?", [results.study_id(study)])
+    spec = YAML(typ="safe").load(rows[0]["spec_yaml"]) if rows and rows[0]["spec_yaml"] else {}
+    cons = (spec or {}).get("constraints") or {}
+    if not cons:
+        return df
+    keep = df.index == df.index
+    for name, c in cons.items():
+        col = c.get("value")
+        if col not in df:
+            raise KeyError(f"study {study}: constraint {name} reads {col!r}, not in the study table")
+        v = df[col].astype(float).to_numpy()
+        base = _unit_of(results, col)
+        d = dim_of(results.units.parse(f"1 {base}")) if base not in ("", "1", "%", "text") else None
+        for key in ("min", "max"):
+            if c.get(key) is not None:
+                lim = results.units.to_si(c[key], d) if d is not None else float(c[key])
+                keep &= (v >= lim) if key == "min" else (v <= lim)
+    if not keep.any():
+        raise ValueError(f"study {study}: no done row meets the constraints {', '.join(cons)}")
+    return df[keep]
 
 
 def _unit_of(results, metric: str) -> str:
