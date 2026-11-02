@@ -1,8 +1,8 @@
 """Backend registry."""
 from __future__ import annotations
 
-from ..errors import ConfigError
-from .base import Backend, Basis, Capabilities, ExecResult, FieldAccess, StageConfig  # noqa: F401
+from bplsim.core.errors import ConfigError
+from bplsim.backends.base import Backend, Basis, Capabilities, ExecResult, FieldAccess, StageConfig  # noqa: F401
 
 _REGISTRY: dict[str, type[Backend]] = {}
 
@@ -15,21 +15,21 @@ def register(cls: type[Backend]) -> type[Backend]:
 def _builtin():
     if _REGISTRY:
         return
-    from .analytic import AnalyticFlaky, AnalyticFunctions, AnalyticLoops
+    from bplsim.backends.analytic import AnalyticFlaky, AnalyticFunctions, AnalyticLoops
     for c in (AnalyticLoops, AnalyticFunctions, AnalyticFlaky):
         register(c)
     try:
-        from .getdp_axisym import GetDPAxisym
+        from bplsim.backends.getdp_axisym import GetDPAxisym
         register(GetDPAxisym)
     except ImportError:
         pass
     try:
-        from .getdp_3d import GetDP3D
+        from bplsim.backends.getdp_3d import GetDP3D
         register(GetDP3D)
     except ImportError:
         pass
     try:
-        from .warpx import WarpX
+        from bplsim.backends.warpx import WarpX
         register(WarpX)
     except ImportError:
         pass

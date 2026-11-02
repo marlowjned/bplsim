@@ -18,11 +18,11 @@ import numpy as np
 from scipy.special import ellipe, ellipk
 from shapely.geometry import Point, Polygon
 
-from ..errors import BackendError
-from ..hashing import content_hash
-from ..parts import Param
-from ..units import mm
-from .base import Backend, Basis, Capabilities, ExecResult, FieldAccess, StageConfig, regions_inputs
+from bplsim.core.errors import BackendError
+from bplsim.core.hashing import content_hash
+from bplsim.parts import Param
+from bplsim.units import mm
+from bplsim.backends.base import Backend, Basis, Capabilities, ExecResult, FieldAccess, StageConfig, regions_inputs
 
 MU0 = 4e-7 * math.pi
 
@@ -84,7 +84,7 @@ class LoopsField(FieldAccess):
         return br, bz
 
     def sample(self, where, fields=("B",)):
-        from ..measure.data import ProbeData
+        from bplsim.measure.data import ProbeData
         ru, zu, inv = where.rz_unique()
         br, bz = self._b(ru, zu)
         shape = where.shape
@@ -99,7 +99,7 @@ class LoopsField(FieldAccess):
         return regs
 
     def region(self, part: str, fields=("B",)):
-        from ..measure.data import ProbeData
+        from bplsim.measure.data import ProbeData
         rs, zs, ws = [], [], []
         for reg in self._regions_named(part):
             poly = Polygon(reg["points"])
@@ -120,7 +120,7 @@ class LoopsField(FieldAccess):
                          {"B_r": br, "B_theta": np.zeros_like(r), "B_z": bz}, {"symmetry": "axisymmetric"})
 
     def boundary(self, surface: str, fields=("B",)):
-        from ..measure.data import ProbeData
+        from bplsim.measure.data import ProbeData
         slot, name = surface.split(".", 1)
         rs, zs, nr_, nz_, ls = [], [], [], [], []
         for reg in self._regions_named(slot):
@@ -211,7 +211,7 @@ class ScalarField(FieldAccess):
         self.values = values
 
     def scalars(self, names=None):
-        from ..measure.data import ProbeData
+        from bplsim.measure.data import ProbeData
         names = names or list(self.values)
         return ProbeData({}, {n: np.array(float(self.values[n])) for n in names}, {})
 

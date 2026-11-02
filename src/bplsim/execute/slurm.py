@@ -24,9 +24,9 @@ import subprocess
 import time
 from pathlib import Path
 
-from ..errors import ConfigError
-from ..units import DEFAULT_UNITS, DIMS
-from .local import TaskOutcome, TaskSpec, pack, slots
+from bplsim.core.errors import ConfigError
+from bplsim.units import DEFAULT_UNITS, DIMS
+from bplsim.execute.local import TaskOutcome, TaskSpec, pack, slots
 
 
 def _walltime(seconds: float) -> str:

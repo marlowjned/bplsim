@@ -12,22 +12,22 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .. import __version__
-from ..checks import prescreen
-from ..errors import BplsimError, ConfigError, ErrorList, ExpressionError, ResolveError
-from ..execute.folders import DataRoot, read_json, write_json
-from ..execute.local import LocalExecutor, TaskSpec, pack, write_task
-from ..hashing import content_hash, major_minor
-from ..measure.engine import (MeasurementSet, call_design_metric, define_measurements, evaluate_metric,
+from bplsim import __version__
+from bplsim.model.checks import prescreen
+from bplsim.core.errors import BplsimError, ConfigError, ErrorList, ExpressionError, ResolveError
+from bplsim.execute.folders import DataRoot, read_json, write_json
+from bplsim.execute.local import LocalExecutor, TaskSpec, pack, write_task
+from bplsim.core.hashing import content_hash, major_minor
+from bplsim.measure.engine import (MeasurementSet, call_design_metric, define_measurements, evaluate_metric,
                               load_measurement_set, reads_paths)
-from ..pipeline import load_pipeline
-from ..project import Project
-from ..resolve import Resolver
-from ..store.collect import collect
-from ..store.db import DB, split_value
-from ..units import DIMS, dim_of
-from .samplers import RowResult, make_sampler
-from .spec import StudySpec, load_study, row_spec
+from bplsim.model.pipeline import load_pipeline
+from bplsim.model.project import Project
+from bplsim.model.resolve import Resolver
+from bplsim.store.collect import collect
+from bplsim.store.db import DB, split_value
+from bplsim.units import DIMS, dim_of
+from bplsim.study.samplers import RowResult, make_sampler
+from bplsim.study.spec import StudySpec, load_study, row_spec
 
 
 @dataclass
@@ -92,7 +92,7 @@ class Driver:
 
     # ---- study folder and library snapshot -------------------------------------------------------
     def _library_dirs(self) -> dict[str, Path]:
-        from ..project import STD_ROOT
+        from bplsim.model.project import STD_ROOT
         return {ns: lib.root for ns, lib in self.live.libraries.items() if lib.root != STD_ROOT}
 
     def _study_folder(self) -> tuple[str, Path, Path]:
@@ -322,7 +322,7 @@ class Driver:
             if not self.root.done(self.root.run_dir(info["run_hash"])):
                 runs[info["run_hash"]] = info["job_run"]
         need_case = []
-        from ..execute.runtask import _measured
+        from bplsim.execute.runtask import _measured
         for h, cj in cases.items():
             d = self.root.case_dir(h)
             if self.root.done(d) and all(p["hash"] in _measured(d) for p in cj["probes"]):
@@ -375,7 +375,7 @@ class Driver:
             leftover = [rj for rj in runs.values() if not self.root.done(self.root.run_dir(rj["run_hash"]))
                         and not (self.root.failed_dir(rj["run_hash"]) / "status.json").exists()]
             if leftover:
-                from ..execute.runtask import run_run
+                from bplsim.execute.runtask import run_run
                 for rj in leftover:
                     run_run(self.project, self.root, rj)
             break

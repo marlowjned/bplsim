@@ -40,11 +40,11 @@ class FigureContext:
         return self.results.run(run_id)
 
     def show(self, value_si: float, dim_name: str) -> float:
-        from .units import DIMS
+        from bplsim.units import DIMS
         return self.units.from_si(value_si, DIMS[dim_name])
 
     def label(self, dim_name: str) -> str:
-        from .units import DIMS
+        from bplsim.units import DIMS
         return self.units.display.get(dim_name, DIMS[dim_name].display)
 
 

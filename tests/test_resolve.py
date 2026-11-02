@@ -2,10 +2,10 @@ import shutil
 
 import pytest
 
-from bplsim.checks import prescreen
-from bplsim.errors import ConfigError, ResolveError
-from bplsim.project import Project
-from bplsim.resolve import Resolver, RowSpec
+from bplsim.model.checks import prescreen
+from bplsim.core.errors import ConfigError, ResolveError
+from bplsim.model.project import Project
+from bplsim.model.resolve import Resolver, RowSpec
 
 from conftest import HET
 

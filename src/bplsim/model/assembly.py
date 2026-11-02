@@ -4,8 +4,8 @@ from __future__ import annotations
 import copy
 from typing import Any
 
-from .errors import ConfigError
-from .yamlio import YamlDoc
+from bplsim.core.errors import ConfigError
+from bplsim.core.yamlio import YamlDoc
 
 ASSEMBLY_KEYS = {"description", "extends", "params", "parts", "checks", "op"}
 SLOT_KEYS = {"use", "type", "params", "at", "optional"}

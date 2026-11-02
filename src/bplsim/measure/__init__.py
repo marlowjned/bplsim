@@ -1,8 +1,8 @@
 """Measurement: probe data, references, measurement sets, combine and normalization."""
 from __future__ import annotations
 
-from ..parts import Slot  # noqa: F401
-from .data import ProbeData  # noqa: F401
+from bplsim.parts import Slot  # noqa: F401
+from bplsim.measure.data import ProbeData  # noqa: F401
 
 
 def reference(version: str, kind: str = "line[B]"):

@@ -14,9 +14,9 @@ from typing import Any
 
 import numpy as np
 
-from .errors import ConfigError
-from .hashing import quantize
-from .units import DIMS, UnitSystem, dim_of
+from bplsim.core.errors import ConfigError
+from bplsim.core.hashing import quantize
+from bplsim.units import DIMS, UnitSystem, dim_of
 
 
 class PropFloat(float):

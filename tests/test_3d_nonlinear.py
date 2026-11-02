@@ -18,9 +18,9 @@ GETDP = Path(__file__).resolve().parents[2] / "HET" / "tools" / "getdp-3.5.0-Win
 def test_nonlinear_3d_converges_and_matches_reference(tmp_path):
     if not os.environ.get("BPLSIM_TOOL_GETDP") and GETDP.exists():
         os.environ["BPLSIM_TOOL_GETDP"] = str(GETDP)
-    from bplsim.pipeline import load_pipeline
-    from bplsim.project import Project
-    from bplsim.resolve import Resolver, RowSpec
+    from bplsim.model.pipeline import load_pipeline
+    from bplsim.model.project import Project
+    from bplsim.model.resolve import Resolver, RowSpec
     pr = Project.load(HET)
     pl = load_pipeline(pr, "het:pipelines/magnetostatics_3d_nl_coarse")
     rs = RowSpec(overrides={"op.circuits.inner.current": (2.0, "t"), "op.circuits.outer.current": (1.6, "t")})

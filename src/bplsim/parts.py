@@ -11,7 +11,7 @@ import typing
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable
 
-from .units import DIMS, Angle, Area, Current, Dim, Dimensionless, FluxDensity, Length, Mass, Power, \
+from bplsim.units import DIMS, Angle, Area, Current, Dim, Dimensionless, FluxDensity, Length, Mass, Power, \
     Temperature, Time, Voltage  # noqa: F401  (re-exported for library authors)
 
 REQUIRED = object()
@@ -137,7 +137,7 @@ def params_of(params_cls: type) -> dict[str, ParamSpec]:
 
 
 def _material_cls():
-    from .materials import Material as M
+    from bplsim.model.materials import Material as M
     return M
 
 

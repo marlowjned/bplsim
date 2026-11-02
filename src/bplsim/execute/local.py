@@ -14,7 +14,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .folders import write_json
+from bplsim.execute.folders import write_json
 
 
 @dataclass
@@ -123,7 +123,7 @@ class InlineExecutor(LocalExecutor):
         super().__init__(workers=workers)
 
     def run(self, tasks, parallel=None):
-        from .runtask import run_task
+        from bplsim.execute.runtask import run_task
         out = []
         for t in tasks:
             t0 = time.time()

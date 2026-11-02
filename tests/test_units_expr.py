@@ -1,7 +1,7 @@
 import pytest
 
-from bplsim.errors import ExpressionError
-from bplsim.expr import Expr, SlotPresent, coerce
+from bplsim.core.errors import ExpressionError
+from bplsim.core.expr import Expr, SlotPresent, coerce
 from bplsim.units import DIMS, Q_, UnitSystem
 
 

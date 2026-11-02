@@ -6,8 +6,8 @@ import re
 import numpy as np
 import pandas as pd
 
-from ..expr import Expr
-from .db import DB
+from bplsim.core.expr import Expr
+from bplsim.store.db import DB
 
 _UNIT_LIT = re.compile(r"(?<![\w.])(\d+(?:\.\d*)?(?:[eE][-+]?\d+)?)\s+([A-Za-z][A-Za-z0-9_*/^]*)")
 

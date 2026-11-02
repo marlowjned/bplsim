@@ -9,8 +9,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from ..errors import BackendError
-from ..parts import Param, ParamSpec, spec_from
+from bplsim.core.errors import BackendError
+from bplsim.parts import Param, ParamSpec, spec_from
 
 
 @dataclass(frozen=True)

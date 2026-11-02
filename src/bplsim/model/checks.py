@@ -12,8 +12,8 @@ from typing import Any
 
 from shapely.ops import unary_union
 
-from .errors import ResolveError
-from .geom.rz import as_regions
+from bplsim.core.errors import ResolveError
+from bplsim.geom.rz import as_regions
 
 OVERLAP_AREA = 1e-12      # m^2 (1 um x 1 um): below this, shapes only touch
 
@@ -100,7 +100,7 @@ def prescreen(design, checks_spec: dict | None = None, units=None) -> Prescreen:
                                          if unchecked else ""), True))
     # assembly checks
     for name, spec in (checks_spec or {}).items():
-        from .measure.engine import call_design_metric
+        from bplsim.measure.engine import call_design_metric
         try:
             res = call_design_metric(design, spec["metric"], spec.get("with") or {}, f"checks.{name}")
         except ResolveError:
@@ -113,5 +113,5 @@ def prescreen(design, checks_spec: dict | None = None, units=None) -> Prescreen:
 
 
 def _len():
-    from .units import DIMS
+    from bplsim.units import DIMS
     return DIMS["length"]

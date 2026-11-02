@@ -9,7 +9,7 @@ import shutil
 import time
 from pathlib import Path
 
-from ..execute.folders import DataRoot, read_json
+from bplsim.execute.folders import DataRoot, read_json
 
 
 def pin(root: DataRoot, run_or_case: str, on: bool = True) -> Path:

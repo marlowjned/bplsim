@@ -5,11 +5,11 @@ import copy
 from dataclasses import dataclass, field
 from typing import Any
 
-from .backends import get_backend
-from .backends.base import Backend, StageConfig
-from .errors import ConfigError
-from .resolve import FidelitySpec, flatten
-from .units import DIMS
+from bplsim.backends import get_backend
+from bplsim.backends.base import Backend, StageConfig
+from bplsim.core.errors import ConfigError
+from bplsim.model.resolve import FidelitySpec, flatten
+from bplsim.units import DIMS
 
 PIPELINE_KEYS = {"description", "extends", "stages"}
 STAGE_KEYS = {"backend", "fidelity", "equivalence", "exports", "inputs", "resources"}

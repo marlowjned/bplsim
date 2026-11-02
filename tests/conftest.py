@@ -9,7 +9,7 @@ FUNCS = FIX / "funcs"
 
 @pytest.fixture
 def het():
-    from bplsim.project import Project
+    from bplsim.model.project import Project
     return Project.load(HET)
 
 

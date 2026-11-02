@@ -17,8 +17,8 @@ from typing import Any, Callable
 import numpy as np
 import pint
 
-from .errors import ExpressionError
-from .units import Q_, Dim, UnitSystem, dim_of
+from bplsim.core.errors import ExpressionError
+from bplsim.units import Q_, Dim, UnitSystem, dim_of
 
 
 def is_expr(value: Any) -> bool:

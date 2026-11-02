@@ -15,15 +15,15 @@ from pathlib import Path
 
 import h5py
 
-from ..backends import get_backend
-from ..backends.base import Basis
-from ..errors import BplsimError
-from ..measure.data import ProbeData
-from ..measure.engine import MetricDef, ProbeDef, compute_metrics, evaluate_probe, normalize
-from ..project import Project
-from ..resolve import ResolvedDesign
-from .folders import DataRoot, publish, read_json, write_json
-from .locks import Lock
+from bplsim.backends import get_backend
+from bplsim.backends.base import Basis
+from bplsim.core.errors import BplsimError
+from bplsim.measure.data import ProbeData
+from bplsim.measure.engine import MetricDef, ProbeDef, compute_metrics, evaluate_probe, normalize
+from bplsim.model.project import Project
+from bplsim.model.resolve import ResolvedDesign
+from bplsim.execute.folders import DataRoot, publish, read_json, write_json
+from bplsim.execute.locks import Lock
 
 _PROJECTS: dict[str, Project] = {}
 
@@ -132,7 +132,7 @@ def run_case(project, root: DataRoot, job: dict) -> str:
 def _normalize_nonlinear(project, backend, job, tmp: Path):
     """Secant iteration on the current scale factor k (nonlinear iron: no superposition). Each step re-solves
     on the same mesh; the final solution is the case's solution and its basis currents are k x nominal."""
-    from ..measure.engine import evaluate_metric
+    from bplsim.measure.engine import evaluate_metric
     spec = job["normalize_nl"]
     design = ResolvedDesign.from_canonical(project, job["design"])
     (b0,) = job["bases"]
@@ -235,7 +235,7 @@ def run_run(project, root: DataRoot, job: dict) -> str:
                 flat[f"{alias}.{k}"] = {"value": _plain(v), "unit": unit, "metric": md.metric_id,
                                         "version": md.version, "definition": md.def_hash}
         if job.get("exports"):
-            from ..measure.engine import basis_weights, combined
+            from bplsim.measure.engine import basis_weights, combined
             w = basis_weights(design, job["bases"])
             (tmp / "exports").mkdir()
             for e in job["exports"]:
@@ -256,7 +256,7 @@ def run_run(project, root: DataRoot, job: dict) -> str:
 def write_export(d: ProbeData, path: Path) -> Path:
     """A grid probe (std:probes/grid_fieldmap) at the run's currents, as an openPMD file for a later stage."""
     import numpy as np
-    from ..measure.openpmd import write_field
+    from bplsim.measure.openpmd import write_field
     if "x" in d.coords:
         X, Y, Z = d.coords["x"], d.coords["y"], d.coords["z"]
         axes = {"x": X[:, 0, 0], "y": Y[0, :, 0], "z": Z[0, 0, :]}

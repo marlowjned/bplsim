@@ -15,7 +15,7 @@ from pathlib import Path
 
 import jinja2
 
-from .figures import render
+from bplsim.figures import render
 
 
 def build(project, results, template_path: str | Path) -> Path:
@@ -39,8 +39,8 @@ def build(project, results, template_path: str | Path) -> Path:
         r = _row(df, row, by or metric)
         v = float(r[metric])
         if unit and unit not in ("%", "1"):
-            from .units import Q_
-            from .store.db import DB  # noqa: F401
+            from bplsim.units import Q_
+            from bplsim.store.db import DB  # noqa: F401
             base = _unit_of(results, metric)
             v = Q_(v, base).to(unit).magnitude if base else v
         return format(v, fmt) + (f" {unit}" if unit and unit != "1" else "")
@@ -84,7 +84,7 @@ def _unit_of(results, metric: str) -> str:
     if rows:
         return rows[0]["unit"] or ""
     rows = results.db.query("SELECT unit FROM params WHERE path=? LIMIT 1", [metric])
-    from .units import DIMS
+    from bplsim.units import DIMS
     if rows and rows[0]["unit"] in DIMS:
         return DIMS[rows[0]["unit"]].si
     return ""

@@ -9,9 +9,9 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .errors import ConfigError
-from .units import DIMS, DEFAULT_UNITS
-from .yamlio import load_yaml
+from bplsim.core.errors import ConfigError
+from bplsim.units import DIMS, DEFAULT_UNITS
+from bplsim.core.yamlio import load_yaml
 
 SITE_KEYS = {"name", "data_root", "executor", "local", "slurm", "container", "tools", "description", "remote"}
 
@@ -38,16 +38,16 @@ class Site:
 
     def make_executor(self, workers: int | None = None):
         if self.executor == "local":
-            from .execute.local import LocalExecutor
+            from bplsim.execute.local import LocalExecutor
             mem = self.local.get("memory_limit")
             mem = DEFAULT_UNITS.to_si(mem, DIMS["memory"]) if isinstance(mem, str) else mem
             return LocalExecutor(workers or self.local.get("workers") if self.local.get("workers") != "auto" else workers,
                                  memory_limit=mem)
         if self.executor == "inline":
-            from .execute.local import InlineExecutor
+            from bplsim.execute.local import InlineExecutor
             return InlineExecutor()
         if self.executor == "slurm":
-            from .execute.slurm import SlurmExecutor
+            from bplsim.execute.slurm import SlurmExecutor
             return SlurmExecutor(self)
         raise ConfigError(f"site {self.name}: unknown executor {self.executor!r}")
 

@@ -14,11 +14,11 @@ from pathlib import Path
 
 import numpy as np
 
-from ...errors import BackendError
-from ...parts import Param
-from ...sites import find_tool
-from ...units import mm
-from ..base import Backend, Basis, Capabilities, ExecResult, FieldAccess, StageConfig, regions_inputs
+from bplsim.core.errors import BackendError
+from bplsim.parts import Param
+from bplsim.execute.sites import find_tool
+from bplsim.units import mm
+from bplsim.backends.base import Backend, Basis, Capabilities, ExecResult, FieldAccess, StageConfig, regions_inputs
 
 HERE = Path(__file__).parent
 BND = 9000           # physical tag of the outer boundary
@@ -77,7 +77,7 @@ class GetDPAxisym(Backend):
 
     def solve_inputs(self, design, stage: StageConfig) -> dict:
         regions, _, circuits = regions_inputs(design, stage, linear=True)
-        from ..analytic import _region_dict
+        from bplsim.backends.analytic import _region_dict
         fid = {k: v for k, v in stage.fidelity.items() if k != "timeout"}
         return {"regions": [_region_dict(r) for r in regions], "circuits": circuits, "fidelity": fid}
 
@@ -349,7 +349,7 @@ class GetDPField(FieldAccess):
         return a[:, -3], a[:, -2]
 
     def sample(self, where, fields=("B",)):
-        from ...measure.data import ProbeData
+        from bplsim.measure.data import ProbeData
         ru, zu, inv = where.rz_unique()
         br, bz = self._eval_rz(ru, zu)
         shape = where.shape
@@ -361,7 +361,7 @@ class GetDPField(FieldAccess):
         return [i + 1 for i, r in enumerate(self.inputs["regions"]) if r["name"] == slot]
 
     def region(self, part: str, fields=("B",)):
-        from ...measure.data import ProbeData
+        from bplsim.measure.data import ProbeData
         tags = self._groups_of(part)
         if not tags:
             raise BackendError(f"no region for part {part!r}")
@@ -378,7 +378,7 @@ class GetDPField(FieldAccess):
 
     def boundary(self, surface: str, fields=("B",)):
         """B just outside a named surface: one point per mesh segment, offset 1 um along the outward normal."""
-        from ...measure.data import ProbeData
+        from bplsim.measure.data import ProbeData
         from shapely.geometry import Point, Polygon
         slot, name = surface.split(".", 1)
         segs = []

@@ -10,13 +10,13 @@ import typing
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
-from .assembly import Tree, load_assembly
-from .errors import ConfigError, ExpressionError, ResolveError
-from .expr import Expr, SlotPresent, coerce, is_expr
-from .hashing import quantize
-from .materials import Material
-from .parts import REQUIRED, Margin, ParamSpec, PartType, Slot, _analyze, params_of
-from .units import DIMS, Q_, Dim, UnitSystem, dim_of
+from bplsim.model.assembly import Tree, load_assembly
+from bplsim.core.errors import ConfigError, ExpressionError, ResolveError
+from bplsim.core.expr import Expr, SlotPresent, coerce, is_expr
+from bplsim.core.hashing import quantize
+from bplsim.model.materials import Material
+from bplsim.parts import REQUIRED, Margin, ParamSpec, PartType, Slot, _analyze, params_of
+from bplsim.units import DIMS, Q_, Dim, UnitSystem, dim_of
 
 OP_SCHEMA: dict[str, Dim] = {"temperature": DIMS["temperature"]}
 
@@ -144,7 +144,7 @@ class ResolvedPart:
         return list(self._instance.checks(self.p) or [])
 
     def regions_rz(self, rule: str | None = None) -> list:
-        from .geom.rz import as_regions
+        from bplsim.geom.rz import as_regions
         if rule:
             eq = self.type_cls.equivalences().get(rule)
             if eq is None:
@@ -661,7 +661,7 @@ class Resolver:
         if errors:
             if len(errors) == 1:
                 raise errors[0]
-            from .errors import ErrorList
+            from bplsim.core.errors import ErrorList
             raise ErrorList(errors)
         self.design.checks_spec = self.tree.get("checks") or {}
         self.design.declared_slots = set(self.tree.get("parts") or {})
@@ -716,7 +716,7 @@ def function_params(fn: Callable, skip: set[str]) -> dict[str, ParamSpec]:
 
 
 def _spec_for(name, ann, default):
-    from .parts import spec_from
+    from bplsim.parts import spec_from
     s = spec_from(name, ann, default)
     s._ann = ann
     return s
@@ -757,7 +757,7 @@ def _coerce_by_ann(design, ann, spec, raw, where):
         inner = args[0] if args else Any
         return [_coerce_by_ann(design, inner, None, x, where) for x in raw]
     if spec is None:
-        from .parts import spec_from
+        from bplsim.parts import spec_from
         spec = spec_from("_", ann, inspect.Parameter.empty)
     if raw is None:
         return None

@@ -5,16 +5,16 @@ import json
 import shutil
 from pathlib import Path
 
-from .errors import BplsimError, ConfigError, ErrorList
-from .hashing import content_hash, major_minor
+from bplsim.core.errors import BplsimError, ConfigError, ErrorList
+from bplsim.core.hashing import content_hash, major_minor
 
 
 def check_project(project_dir: Path, fingerprints: bool = True) -> list[BaseException]:
-    from .checks import prescreen
-    from .measure.engine import define_measurements, load_measurement_set
-    from .pipeline import load_pipeline
-    from .project import Project
-    from .resolve import Resolver
+    from bplsim.model.checks import prescreen
+    from bplsim.measure.engine import define_measurements, load_measurement_set
+    from bplsim.model.pipeline import load_pipeline
+    from bplsim.model.project import Project
+    from bplsim.model.resolve import Resolver
     try:
         pr = Project.load(project_dir)
     except BplsimError as e:
@@ -66,9 +66,9 @@ def check_project(project_dir: Path, fingerprints: bool = True) -> list[BaseExce
 def check_fingerprints(pr, designs: dict) -> list[BaseException]:
     """R8: run every probe and metric of every measurement set on the analytic loops backend; if an
     entry's output changed while its MAJOR.MINOR version did not, report it."""
-    from .backends.analytic import AnalyticLoops
-    from .backends.base import StageConfig
-    from .measure.engine import compute_metrics, define_measurements, evaluate_probe, load_measurement_set
+    from bplsim.backends.analytic import AnalyticLoops
+    from bplsim.backends.base import StageConfig
+    from bplsim.measure.engine import compute_metrics, define_measurements, evaluate_probe, load_measurement_set
     store = pr.root / ".bplsim" / "fingerprints.json"
     old = json.loads(store.read_text()) if store.exists() else {}
     new, errors = {}, []
@@ -151,7 +151,7 @@ def init_project(directory: Path, name: str):
 
 
 def fork_entry(project_dir: Path, entry_id: str, into: str) -> Path:
-    from .project import Project, split_id
+    from bplsim.model.project import Project, split_id
     pr = Project.load(project_dir)
     e = pr.entry(entry_id)
     ns, folder, name = split_id(entry_id)

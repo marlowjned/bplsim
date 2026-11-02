@@ -1,5 +1,5 @@
-"""Design check: minimum gap between listed pairs of parts (r-z exact; see bplsim.checks)."""
-from bplsim.checks import pair_geometry
+"""Design check: minimum gap between listed pairs of parts (r-z exact; see bplsim.model.checks)."""
+from bplsim.model.checks import pair_geometry
 from bplsim.metrics import Length, Slot, metric
 
 

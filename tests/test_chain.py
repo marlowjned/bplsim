@@ -10,7 +10,7 @@ from conftest import HET, run_study
 
 
 def test_mag_to_pic_chain(tmp_path, monkeypatch):
-    from bplsim.analysis import Results
+    from bplsim.results.analysis import Results
     from bplsim.measure.openpmd import read_field
     fake = Path(__file__).parent / "fake_warpx.py"
     monkeypatch.setenv("BPLSIM_TOOL_WARPX", f"{sys.executable} {fake}")

@@ -6,12 +6,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from ..errors import ConfigError
-from ..expr import is_expr
-from ..hashing import content_hash
-from ..resolve import FidelitySpec, Resolver, RowSpec
-from ..units import DIMS, Dim, dim_of
-from ..yamlio import YamlDoc, load_yaml
+from bplsim.core.errors import ConfigError
+from bplsim.core.expr import is_expr
+from bplsim.core.hashing import content_hash
+from bplsim.model.resolve import FidelitySpec, Resolver, RowSpec
+from bplsim.units import DIMS, Dim, dim_of
+from bplsim.core.yamlio import YamlDoc, load_yaml
 
 STUDY_KEYS = {"description", "production", "design", "pipeline", "measure", "overrides", "variables", "normalize",
               "objectives", "constraints", "sampler", "budget", "retention", "pin"}
@@ -105,7 +105,7 @@ def load_study(project, path: str | Path) -> StudySpec:
     for k in measure:
         if k not in ("use", "add"):
             raise doc.error(f"unknown key {k!r} in measure (allowed: use, add)", "measure", k)
-    from ..pipeline import load_pipeline
+    from bplsim.model.pipeline import load_pipeline
     pipeline = load_pipeline(project, data["pipeline"])
     # resolve the baseline once, to learn the targets' types and dimensions
     base = Resolver(project, data["design"], fidelity=pipeline.fidelity_spec())

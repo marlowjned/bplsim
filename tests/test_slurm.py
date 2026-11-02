@@ -14,7 +14,7 @@ FAKE = Path(__file__).parent / "fake_slurm"
 @pytest.mark.skipif(shutil.which("bash") is None, reason="needs bash to run the generated batch script")
 def test_slurm_executor_runs_study(tmp_path, monkeypatch):
     from bplsim.execute.slurm import SlurmExecutor
-    from bplsim.sites import Site
+    from bplsim.execute.sites import Site
     monkeypatch.setenv("FAKE_SLURM_DIR", str(tmp_path))
     scripts = Path(sys.executable).parent
     monkeypatch.setenv("PATH", str(scripts) + os.pathsep + os.environ["PATH"])

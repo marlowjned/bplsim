@@ -10,7 +10,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from ..errors import ConfigError
+from bplsim.core.errors import ConfigError
 
 
 def _ssh(remote: dict) -> list[str]:

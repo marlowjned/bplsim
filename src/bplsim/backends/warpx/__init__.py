@@ -19,10 +19,10 @@ from pathlib import Path
 
 import numpy as np
 
-from ...errors import BackendError
-from ...parts import Param
-from ...sites import find_tool
-from ..base import Backend, Basis, Capabilities, ExecResult, FieldAccess, StageConfig
+from bplsim.core.errors import BackendError
+from bplsim.parts import Param
+from bplsim.execute.sites import find_tool
+from bplsim.backends.base import Backend, Basis, Capabilities, ExecResult, FieldAccess, StageConfig
 
 HERE = Path(__file__).parent
 
@@ -121,8 +121,8 @@ class WarpXField(FieldAccess):
 
     def sample(self, where, fields=("B",)):
         from scipy.interpolate import RegularGridInterpolator
-        from ...measure.data import ProbeData
-        from ...measure.openpmd import read_field
+        from bplsim.measure.data import ProbeData
+        from bplsim.measure.openpmd import read_field
         out = {}
         for name in fields:
             axes, comps = read_field(self._last_diag(), name)
@@ -149,7 +149,7 @@ class WarpXField(FieldAccess):
 
     def scalars(self, names=None):
         """Last row of every reduced diagnostic (diags/reducedfiles/*.txt); columns named file.column."""
-        from ...measure.data import ProbeData
+        from bplsim.measure.data import ProbeData
         vals = {}
         for f in sorted((self.dir / "diags" / "reducedfiles").glob("*.txt")):
             lines = [ln for ln in f.read_text().splitlines() if ln.strip()]

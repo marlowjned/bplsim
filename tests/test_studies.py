@@ -35,9 +35,9 @@ def test_rerun_is_cached_and_second_study_shares_cases(data_root):
 
 
 def test_temperature_only_change_reuses_case(het):
-    from bplsim.hashing import content_hash
-    from bplsim.pipeline import load_pipeline
-    from bplsim.resolve import Resolver, RowSpec
+    from bplsim.core.hashing import content_hash
+    from bplsim.model.pipeline import load_pipeline
+    from bplsim.model.resolve import Resolver, RowSpec
     pl = load_pipeline(het, "het:pipelines/loops_2d")
     st = pl.stages["mag"]
     hashes = []
@@ -175,9 +175,9 @@ def test_crash_is_retried_once_by_local_executor(tmp_path):
 
 def test_figures_and_report(data_root, tmp_path):
     """Figures and reports regenerate from stored results only (plan §14)."""
-    from bplsim.analysis import Results
-    from bplsim.project import Project
-    from bplsim.report import build
+    from bplsim.results.analysis import Results
+    from bplsim.model.project import Project
+    from bplsim.results.report import build
     run_study(HET, "cap_screen_loops.yaml", data_root)
     pr = Project.load(HET)
     res = Results(data_root, pr.units)
@@ -224,7 +224,7 @@ def test_cli_init_check_show_fork_gc(tmp_path):
 
 def test_local_site_profile_is_the_default(tmp_path, monkeypatch):
     """Without --site, ~/.config/bplsim/sites/local.yaml is used (its tools reach the backends)."""
-    from bplsim.sites import load_site
+    from bplsim.execute.sites import load_site
     monkeypatch.setenv("BPLSIM_SITES", str(tmp_path))
     monkeypatch.delenv("BPLSIM_TOOL_GETDP", raising=False)
     assert load_site(None).tools == {}

@@ -1,6 +1,6 @@
 """Reading results back: study tables, runs, and their probe data combined at the run's currents.
 
-    from bplsim.analysis import Results
+    from bplsim.results.analysis import Results
     res = Results(data_root)
     df = res.study_table("design_a_gap_sweep")
     run = res.run(df.run_id[0])
@@ -13,11 +13,11 @@ from pathlib import Path
 import h5py
 import pandas as pd
 
-from .execute.folders import DataRoot, read_json
-from .measure.data import ProbeData
-from .measure.engine import basis_weights
-from .store.db import DB
-from .store.query import query, study_table
+from bplsim.execute.folders import DataRoot, read_json
+from bplsim.measure.data import ProbeData
+from bplsim.measure.engine import basis_weights
+from bplsim.store.db import DB
+from bplsim.store.query import query, study_table
 
 
 class _WeightDesign:

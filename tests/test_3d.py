@@ -17,9 +17,9 @@ def test_3d_matches_2d_on_angle_averaged_profile(tmp_path):
         os.environ["BPLSIM_TOOL_GETDP"] = str(GETDP)
     from bplsim.measure.engine import (compute_metrics, define_measurements, evaluate_probe, load_measurement_set,
                                        normalize)
-    from bplsim.pipeline import load_pipeline
-    from bplsim.project import Project
-    from bplsim.resolve import Resolver
+    from bplsim.model.pipeline import load_pipeline
+    from bplsim.model.project import Project
+    from bplsim.model.resolve import Resolver
     pr = Project.load(HET)
     out = {}
     for pid in ("het:pipelines/magnetostatics_2d", "het:pipelines/magnetostatics_3d_coarse"):

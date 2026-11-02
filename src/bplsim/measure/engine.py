@@ -10,12 +10,12 @@ from typing import Any
 import numpy as np
 from scipy.optimize import brentq
 
-from ..errors import ConfigError, ResolveError
-from ..hashing import content_hash, major_minor
-from ..parts import REQUIRED
-from ..resolve import coerce_function_param, function_params
-from . import Reference
-from .data import ProbeData
+from bplsim.core.errors import ConfigError, ResolveError
+from bplsim.core.hashing import content_hash, major_minor
+from bplsim.parts import REQUIRED
+from bplsim.model.resolve import coerce_function_param, function_params
+from bplsim.measure import Reference
+from bplsim.measure.data import ProbeData
 
 INJECTED = {"design", "op", "sol"}
 

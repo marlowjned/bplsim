@@ -15,12 +15,12 @@ from pathlib import Path
 
 import numpy as np
 
-from ...errors import BackendError
-from ...geom.cad import Solid, realise
-from ...parts import Param
-from ...units import mm
-from ..base import Backend, Basis, Capabilities, ExecResult, FieldAccess, StageConfig
-from ..getdp_axisym import _getdp, _ident
+from bplsim.core.errors import BackendError
+from bplsim.geom.cad import Solid, realise
+from bplsim.parts import Param
+from bplsim.units import mm
+from bplsim.backends.base import Backend, Basis, Capabilities, ExecResult, FieldAccess, StageConfig
+from bplsim.backends.getdp_axisym import _getdp, _ident
 
 HERE = Path(__file__).parent
 BND = 9000
@@ -410,7 +410,7 @@ class GetDP3DField(FieldAccess):
         return out
 
     def sample(self, where, fields=("B",)):
-        from ...measure.data import ProbeData
+        from bplsim.measure.data import ProbeData
         r, th, z = np.ravel(where.r), np.ravel(where.theta), np.ravel(where.z)
         xyz = np.column_stack([r * np.cos(th), r * np.sin(th), z])
         b = self._interp(xyz)
@@ -428,7 +428,7 @@ class GetDP3DField(FieldAccess):
         return [b["group"] for b in bodies if b["name"] == slot or b["name"].startswith(slot + ".")]
 
     def region(self, part: str, fields=("B",)):
-        from ...measure.data import ProbeData
+        from bplsim.measure.data import ProbeData
         groups = self._groups_of(part)
         if not groups:
             raise BackendError(f"no body for part {part!r}")
@@ -445,7 +445,7 @@ class GetDP3DField(FieldAccess):
 
     def boundary(self, surface: str, fields=("B",), n_theta: int = 36):
         """B just outside a named surface of an axisymmetric (revolved) part, at n_theta angles."""
-        from ...measure.data import ProbeData
+        from bplsim.measure.data import ProbeData
         from shapely.geometry import Point, Polygon
         slot, name = surface.split(".", 1)
         body = next((b for b in self.inputs["bodies"] if b["slot"] == slot), None)
@@ -470,7 +470,7 @@ class GetDP3DField(FieldAccess):
         th = np.arange(n_theta) * 2 * math.pi / n_theta
         R, TH = np.meshgrid(rs, th, indexing="ij")
         Z, _ = np.meshgrid(zs, th, indexing="ij")
-        from ...probes import points
+        from bplsim.probes import points
         d = self.sample(points(R.ravel(), TH.ravel(), Z.ravel()))
         rep = lambda a: np.repeat(np.array(a), n_theta)  # noqa: E731
         return ProbeData({"r": d.coords["r"], "theta": d.coords["theta"], "z": d.coords["z"], "n_r": rep(nr_),
@@ -483,7 +483,7 @@ class GetDP3DField(FieldAccess):
         X, Y, Z = np.meshgrid(xs, ys, zs, indexing="ij")
         b = self._interp(np.column_stack([X.ravel(), Y.ravel(), Z.ravel()])).reshape(X.shape + (3,))
         if fmt == "openpmd":
-            from ...measure.openpmd import write_field
+            from bplsim.measure.openpmd import write_field
             write_field(path, {"x": xs, "y": ys, "z": zs}, {"B": b})
         else:
             np.savez(path, x=xs, y=ys, z=zs, B_x=b[..., 0], B_y=b[..., 1], B_z=b[..., 2])

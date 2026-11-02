@@ -9,7 +9,7 @@ import pytest
 from scipy.interpolate import Akima1DInterpolator
 
 from bplsim.backends.getdp_3d import bh_issues, nu_table
-from bplsim.errors import BackendError
+from bplsim.core.errors import BackendError
 
 from conftest import HET
 
@@ -63,9 +63,9 @@ def test_check_validates_bh_curves_before_meshing(monkeypatch):
     """getdp_3d.check() runs the B-H validation for nonlinear stages (the study driver marks the design
     invalid before any mesh is built); linear stages skip it."""
     import bplsim.backends.getdp_3d as g3
-    from bplsim.pipeline import load_pipeline
-    from bplsim.project import Project
-    from bplsim.resolve import Resolver
+    from bplsim.model.pipeline import load_pipeline
+    from bplsim.model.project import Project
+    from bplsim.model.resolve import Resolver
     pr = Project.load(HET)
     pl = load_pipeline(pr, "het:pipelines/magnetostatics_3d_nl_coarse")
     d = Resolver(pr, "het:assemblies/bn_screened", fidelity=pl.fidelity_spec()).resolve()

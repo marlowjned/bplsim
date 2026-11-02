@@ -14,10 +14,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .errors import ConfigError, ErrorList
-from .materials import Material, Vocabulary, parse_property
-from .units import UnitSystem
-from .yamlio import YamlDoc, load_yaml
+from bplsim.core.errors import ConfigError, ErrorList
+from bplsim.model.materials import Material, Vocabulary, parse_property
+from bplsim.units import UnitSystem
+from bplsim.core.yamlio import YamlDoc, load_yaml
 
 FOLDERS = {
     "materials": "material", "part_types": "part_type", "parts": "part", "assemblies": "assembly",
@@ -26,7 +26,7 @@ FOLDERS = {
 }
 PY_FOLDERS = {"part_types", "probes", "metrics", "references", "figures"}
 YAML_SUFFIXES = (".yaml", ".yml")
-STD_ROOT = Path(__file__).parent / "std"
+STD_ROOT = Path(__file__).parents[1] / "std"          # bplsim/std
 
 
 @dataclass(frozen=True)
@@ -200,7 +200,7 @@ class Project:
             if getattr(obj, "__module__", None) != mod.__name__:
                 continue
             if e.folder == "part_types":
-                from .parts import PartType
+                from bplsim.parts import PartType
                 if inspect.isclass(obj) and issubclass(obj, PartType) and obj is not PartType:
                     found.append(obj)
             else:

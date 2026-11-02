@@ -6,9 +6,9 @@ plus ``design`` and ``op`` if its signature asks for them. Outputs: SI floats, o
 """
 from __future__ import annotations
 
-from .measure.data import ProbeData  # noqa: F401
-from .parts import Slot  # noqa: F401
-from .units import Angle, Length  # noqa: F401
+from bplsim.measure.data import ProbeData  # noqa: F401
+from bplsim.parts import Slot  # noqa: F401
+from bplsim.units import Angle, Length  # noqa: F401
 
 
 def metric(version: str, inputs: dict[str, str] | None = None, outputs: dict[str, str] | str | None = None):

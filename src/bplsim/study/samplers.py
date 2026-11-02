@@ -15,8 +15,8 @@ from typing import Any
 
 import numpy as np
 
-from ..errors import ConfigError
-from .spec import Variable
+from bplsim.core.errors import ConfigError
+from bplsim.study.spec import Variable
 
 
 @dataclass

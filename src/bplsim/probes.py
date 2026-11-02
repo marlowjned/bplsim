@@ -9,9 +9,9 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from .measure.data import ProbeData
-from .parts import Slot  # noqa: F401  (re-exported)
-from .units import Angle, Area, Current, FluxDensity, Length, Temperature  # noqa: F401
+from bplsim.measure.data import ProbeData
+from bplsim.parts import Slot  # noqa: F401  (re-exported)
+from bplsim.units import Angle, Area, Current, FluxDensity, Length, Temperature  # noqa: F401
 
 __all__ = ["probe", "Where", "points", "line", "ring", "grid_rtz", "radial_mean", "theta_mean", "Slot",
            "Length", "Angle", "ProbeData"]

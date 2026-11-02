@@ -4,8 +4,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from ..execute.folders import DataRoot, read_json
-from .db import DB, split_value
+from bplsim.execute.folders import DataRoot, read_json
+from bplsim.store.db import DB, split_value
 
 
 def _flatten_design(canon: dict) -> dict:

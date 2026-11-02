@@ -2,9 +2,9 @@
 Run from the repo root: .venv/Scripts/python.exe scripts/nonlinear_3d_check.py (needs BPLSIM_TOOL_GETDP)."""
 import time, shutil
 from pathlib import Path
-from bplsim.project import Project
-from bplsim.resolve import Resolver, RowSpec
-from bplsim.pipeline import load_pipeline
+from bplsim.model.project import Project
+from bplsim.model.resolve import Resolver, RowSpec
+from bplsim.model.pipeline import load_pipeline
 pr = Project.load("tests/fixtures/het_example")
 pl = load_pipeline(pr, "het:pipelines/magnetostatics_3d_nl_coarse")
 rs = RowSpec(overrides={"op.circuits.inner.current": (2.0, "t"), "op.circuits.outer.current": (1.6, "t")})

@@ -8,7 +8,7 @@ from typing import Any
 from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap, CommentedSeq
 
-from .errors import ConfigError
+from bplsim.core.errors import ConfigError
 
 _yaml = YAML(typ="rt")
 
