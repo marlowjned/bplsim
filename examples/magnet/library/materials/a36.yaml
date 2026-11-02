@@ -1,0 +1,8 @@
+description: "ASTM A36 structural steel, as rolled"
+sources: ["illustrative"]
+properties:
+  density: 7850 kg/m^3
+  mu_r: 1500
+  bh_curve: {table: a36_bh.csv, columns: {H: A/m, B: T}}
+  saturation_knee: 1.5 T
+  thermal_conductivity: 51.9 W/(m*K)

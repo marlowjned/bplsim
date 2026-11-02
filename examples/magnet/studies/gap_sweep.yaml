@@ -1,0 +1,18 @@
+description: "Inner-screen gap sweep at 165 G peak field, 2-D axisymmetric FEM with iron (needs GetDP)"
+design:   magnet:assemblies/bn_screened
+pipeline: magnet:pipelines/magnetostatics_2d
+measure:
+  use: magnet:measurements/channel_field_2d
+  add:
+    misfit: {metric: std:metrics/profile_misfit, inputs: {profile: profile},
+             with: {reference: magnet:references/half_gaussian_exit, component: B_r}}
+variables:
+  is_gap: {param: params.inner_screen_gap, values: [10, 14, 18, 22, 26, 30]}
+normalize:
+  scale: [op.circuits.inner.current, op.circuits.outer.current]
+  so_that: {value: shape.peak_Br, equals: 165}
+objectives:
+  misfit: {minimize: misfit.rms_pct}
+constraints:
+  saturation: {value: sat.max_fraction, max: 0.8}
+sampler: {kind: grid}

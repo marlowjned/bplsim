@@ -1,0 +1,3 @@
+type: magnet:part_types/pole_cap_flat
+description: "Pole cap, flat, R17.6 (inside the BN bore with 0.12 mm clearance)"
+params: {radius: 17.6, thickness: 9.525, material: magnet:materials/steel_1018}

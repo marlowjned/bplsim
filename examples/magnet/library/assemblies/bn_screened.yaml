@@ -1,0 +1,19 @@
+extends: magnet:assemblies/bpl1000_bn
+description: "Illustrative: flat cap R17.6 + inner screen from 1-3/8 x .095 DOM tube, tip gap 18"
+params:
+  inner_screen_gap: 18 mm
+  screen_tip_z: "${ params.front_plate_inner_z - params.inner_screen_gap }"
+parts:
+  inner_screen:
+    type: magnet:part_types/screen
+    at: "${ params.screen_tip_z }"
+    optional: true
+    params:
+      r_inner: 15.05
+      thickness: 2.41
+      length: "${ params.screen_tip_z - params.back_plate_inner_z }"
+      material: magnet:materials/a36
+checks:
+  screen_clearance:
+    metric: std:metrics/clearance
+    with: {pairs: [[inner_screen, channel, 0.1], [inner_screen, inner_coil, 0.4]]}

@@ -1,0 +1,14 @@
+description: "Linear axisymmetric magnetostatics (GetDP)"
+stages:
+  mag:
+    backend: getdp_axisym ^1.0
+    fidelity:
+      nonlinear: false
+      mesh: {h_fine: 0.35, h_iron: 1.2, h_far: 25}
+      air_radius: 400
+    equivalence:
+      outer_posts: smeared_ring
+      outer_coils: winding_sheets
+      front_plate: equal_area_disc
+      back_plate:  equal_area_disc
+    resources: {cores: 1, memory: 1 GB}
