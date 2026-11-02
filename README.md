@@ -33,7 +33,8 @@ The magnetostatics backends need [GetDP](https://getdp.info) 3.5: put it on `PAT
 ```
 cd examples/functions
 bplsim check                                  # validate the project
-bplsim study run studies/branin_compass.yaml  # an optimizer on a test function, about 17 s
+bplsim study run studies/branin_grid.yaml     # a sweep over a test function, about 2 s
+bplsim study run studies/branin_compass.yaml  # an optimizer on the same function, about 17 s
 bplsim study status studies/branin_compass.yaml
 bplsim report build reports/summary.md.j2     # numbers and figures from the database
 ```

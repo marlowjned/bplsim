@@ -311,10 +311,15 @@ def report_build(template: Path, project: Optional[Path] = typer.Option(None, "-
     from bplsim.model.project import Project
     from bplsim.results.report import build
     from bplsim.execute.sites import load_site
+    from bplsim.core.errors import BplsimError
     pdir = find_project(project or template.parent)
     pr = Project.load(pdir)
     res = Results(data_root_for(pdir, data, load_site(site)), pr.units)
-    typer.echo(f"wrote {build(pr, res, template)}")
+    try:
+        typer.echo(f"wrote {build(pr, res, template)}")
+    except (BplsimError, KeyError, ValueError) as e:     # e.g. a study the template reads has not been run
+        msg = e.args[0] if isinstance(e, KeyError) and e.args else str(e)
+        _fail(Exception(f"{template}: {msg} (run the studies the template reads first)"))
 
 
 @app.command()
